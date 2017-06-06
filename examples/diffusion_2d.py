@@ -186,8 +186,7 @@ diffusion_dict = {"u": InteriorPenalty(state, Vu, kappa=Constant(1.*10**(-6)),
 ##############################################################################
 # build time stepper
 ##############################################################################
-physics_list = {}
-stepper = AdvectionTimestepper(state, advection_dict, diffusion_dict, physics_list)
+stepper = AdvectionTimestepper(state, advection_dict, diffusion_dict)
 
 ##############################################################################
 # Run!
