@@ -4,7 +4,8 @@ import itertools
 from collections import defaultdict
 from functools import partial
 import json
-from gusto.diagnostics import Diagnostics, Perturbation, SteadyStateError
+from gusto.diagnostics import Diagnostics, Perturbation, \
+    SteadyStateError
 from sys import exit
 from firedrake import FiniteElement, TensorProductElement, HDiv, \
     FunctionSpace, MixedFunctionSpace, VectorFunctionSpace, \
@@ -175,6 +176,10 @@ class State(object):
         # create field dictionary
         self.field_dict = {field.name(): field for field in self.fields}
 
+        # register any diagnostic fields to diagnostics
+        for diagnostic in self.diagnostic_fields:
+            self.diagnostics.register(diagnostic.name)
+
         # add special case diagnostic fields
         for name in self.output.perturbation_fields:
             f = Perturbation(self, name)
@@ -251,6 +256,9 @@ class State(object):
             for name in self.diagnostics.fields:
                 data = self.diagnostics.l2(self.field_dict[name])
                 self.diagnostic_data[name]["l2"].append(data)
+                if len(self.field_dict[name].ufl_shape) is 0:
+                    data = self.diagnostics.total(self.field_dict[name])
+                    self.diagnostic_data[name]["total"].append(data)
 
             # Open the checkpointing file (backup version)
             files = ["chkptbk", "chkpt"]

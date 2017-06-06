@@ -2,7 +2,7 @@ from __future__ import absolute_import
 from abc import ABCMeta, abstractmethod
 from pyop2.profiling import timed_stage
 from gusto.linear_solvers import IncompressibleSolver
-from firedrake import DirichletBC, Expression
+from firedrake import DirichletBC
 
 
 class BaseTimestepper(object):
@@ -29,11 +29,9 @@ class BaseTimestepper(object):
         unp1 = self.state.xnp1.split()[0]
 
         if unp1.function_space().extruded:
-            dim = unp1.ufl_element().value_shape()[0]
-            bc = ("0.0",)*dim
             M = unp1.function_space()
-            bcs = [DirichletBC(M, Expression(bc), "bottom"),
-                   DirichletBC(M, Expression(bc), "top")]
+            bcs = [DirichletBC(M, 0.0, "bottom"),
+                   DirichletBC(M, 0.0, "top")]
 
             for bc in bcs:
                 bc.apply(unp1)
@@ -97,7 +95,7 @@ class Timestepper(BaseTimestepper):
             state.setup_dump(pickup)
             t = state.dump(t, pickup)
 
-        while t < tmax + 0.5*dt:
+        while t < tmax - 0.5*dt:
             if state.output.Verbose:
                 print "STEP", t, dt
 
@@ -156,7 +154,7 @@ class Timestepper(BaseTimestepper):
                 state.dump(t, pickup=False)
 
         state.diagnostic_dump()
-        print "TIMELOOP complete. t= "+str(t-dt)+" tmax="+str(tmax)
+        print "TIMELOOP complete. t= " + str(t) + " tmax=" + str(tmax)
 
 
 class AdvectionTimestepper(BaseTimestepper):
@@ -164,6 +162,7 @@ class AdvectionTimestepper(BaseTimestepper):
     def __init__(self, state, advection_dict, diffusion_dict, physics_list=None):
 
         super(AdvectionTimestepper, self).__init__(state, advection_dict, diffusion_dict)
+
         if physics_list is not None:
             self.physics_list = physics_list
         else:
@@ -178,7 +177,7 @@ class AdvectionTimestepper(BaseTimestepper):
         state.setup_dump()
         state.dump()
 
-        while t < tmax + 0.5*dt:
+        while t < tmax - 0.5*dt:
             if state.output.Verbose:
                 print "STEP", t, dt
 
@@ -193,13 +192,12 @@ class AdvectionTimestepper(BaseTimestepper):
 
             for physics in self.physics_list:
                 physics.apply()
-         
-	    #Added by PB, 15/05/2017
+
 	    with timed_stage("Diffusion"):
               for name, diffusion in self.diffusion_dict.iteritems():
                  field = getattr(state.fields, name)
                  diffusion.apply(field, field)
-	 
+
             state.dump()
 
         state.diagnostic_dump()
