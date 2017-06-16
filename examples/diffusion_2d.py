@@ -57,7 +57,7 @@ timestepping = TimesteppingParameters(dt=dt)
 # class containing output parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
-output = OutputParameters(dirname='boussinesq_2d_lab', dumpfreq=200, dumplist=['u','b'], perturbation_fields=['b'])
+output = OutputParameters(dirname='diffusion_tmp', dumpfreq=200, dumplist=['u','b'], perturbation_fields=['b'])
 
 # class containing physical parameters
 # all values not explicitly set here use the default values provided
@@ -169,13 +169,13 @@ forcing = IncompressibleForcing(state)
 # Kinematic viscosity = 1.*10**(-6)
 # Heat diffusivity = 1.4*10**(-7)
 Vu = u0.function_space()
-Vb = b0.function_space()
+Vb = state.spaces("HDiv_v")
 delta = L/columns 		#Grid resolution (same in both directions).
 
 
 bcs_u = [DirichletBC(Vu, 0.0, "bottom"), DirichletBC(Vu, 0.0, "top")]
-#bcs_b = [DirichletBC(Vb, 0.0, "bottom"), DirichletBC(Vb, 0.0, "top")]
-bcs_b = {}
+bcs_b = [DirichletBC(Vb, 0.0, "bottom"), DirichletBC(Vb, 0.0, "top")]
+
 
 diffusion_dict = {"u": InteriorPenalty(state, Vu, kappa=Constant(1.*10**(-6)),
                                            mu=Constant(10./delta), bcs=bcs_u),
