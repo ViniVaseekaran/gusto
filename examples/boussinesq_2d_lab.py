@@ -63,7 +63,7 @@ timestepping = TimesteppingParameters(dt=dt)
 # and documented in configuration.py
 #dumpfreq = 10
 dumpfreq = 800
-output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'])
+output = OutputParameters(dirname='boussinesq_2d_lab_tmp', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'])
 
 # class containing physical parameters
 # all values not explicitly set here use the default values provided
