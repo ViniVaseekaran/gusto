@@ -56,7 +56,7 @@ class Timestepper(BaseTimestepper):
 
     def __init__(self, state, advection_dict, linear_solver, forcing, diffusion_dict=None, physics_list=None):
 
-        super(Timestepper, self).__init__(state, advection_dict)
+        super(Timestepper, self).__init__(state, advection_dict, diffusion_dict)
         self.linear_solver = linear_solver
         self.forcing = forcing
         self.diffusion_dict = {}
