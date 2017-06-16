@@ -6,7 +6,9 @@ import sympy as sp
 from sympy.stats import Normal
 import sys
 
-dt = 1./20
+#dt = 1./20
+#dt = 15./10**4
+dt = 0.00375
 
 if '--running-tests' in sys.argv:
     tmax = dt
@@ -27,12 +29,14 @@ else:
 # set up mesh
 ##############################################################################
 # Construct 1d periodic base mesh for idealised lab experiment of Park et al. (1994)
-columns = 20  # number of columns
+#columns = 20  # number of columns
+columns = 80
 L = 0.2
 m = PeriodicIntervalMesh(columns, L)
 
 # build 2D mesh by extruding the base mesh
-nlayers = 45  # horizontal layers
+#nlayers = 45  # horizontal layers
+nlayers = 180
 H = 0.45  # Height position of the model top
 mesh = ExtrudedMesh(m, layers=nlayers, layer_height=H/nlayers)
 
@@ -57,7 +61,9 @@ timestepping = TimesteppingParameters(dt=dt)
 # class containing output parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
-output = OutputParameters(dirname='boussinesq_2d_lab', dumpfreq=200, dumplist=['u','b'], perturbation_fields=['b'])
+#dumpfreq = 10
+dumpfreq = 800
+output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'])
 
 # class containing physical parameters
 # all values not explicitly set here use the default values provided
@@ -141,6 +147,7 @@ incompressible_hydrostatic_balance(state, b_b, p0, top=False)
 
 # pass these initial conditions to the state.initialise method
 state.initialise({"u": u0, "p": p0, "b": b0})
+
 # set the background buoyancy
 state.set_reference_profiles({"b": b_b})
 
@@ -181,23 +188,22 @@ forcing = IncompressibleForcing(state)
 # Kinematic viscosity = 1.*10**(-6)
 # Heat diffusivity = 1.4*10**(-7)
 Vu = u0.function_space()
-Vb = b0.function_space()
+Vb = state.spaces("HDiv_v")
 delta = L/columns 		#Grid resolution (same in both directions).
 
-
-bcs = [DirichletBC(Vu, 0.0, "bottom"), DirichletBC(Vu, 0.0, "top")]
+bcs_u = [DirichletBC(Vu, 0.0, "bottom"), DirichletBC(Vu, 0.0, "top")]
+bcs_b = [DirichletBC(Vb, -N**2*H, "bottom"), DirichletBC(Vb, 0.0, "top")]
 
 diffusion_dict = {"u": InteriorPenalty(state, Vu, kappa=Constant(1.*10**(-6)),
-                                           mu=Constant(10./delta), bcs=bcs),
+                                           mu=Constant(10./delta), bcs=bcs_u),
                       "b": InteriorPenalty(state, Vb, kappa=Constant(1.4*10**(-7)),
-                                               mu=Constant(10./delta))}
+                                               mu=Constant(10./delta), bcs=bcs_b)}
 
 
 ##############################################################################
 # build time stepper
 ##############################################################################
-stepper = Timestepper(state, advection_dict, linear_solver,
-                      forcing)
+stepper = Timestepper(state, advection_dict, linear_solver, forcing, diffusion_dict)
 
 ##############################################################################
 # Run!
