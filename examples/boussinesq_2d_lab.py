@@ -6,9 +6,9 @@ import sympy as sp
 from sympy.stats import Normal
 import sys
 
-#dt = 1./20
-#dt = 15./10**4
-dt = 0.00375
+dt = 1./20
+#dt = 0.01
+#dt = 0.005
 
 if '--running-tests' in sys.argv:
     tmax = dt
@@ -29,14 +29,16 @@ else:
 # set up mesh
 ##############################################################################
 # Construct 1d periodic base mesh for idealised lab experiment of Park et al. (1994)
-#columns = 20  # number of columns
-columns = 80
+columns = 20  # number of columns
+#columns = 40
+#columns = 80
 L = 0.2
 m = PeriodicIntervalMesh(columns, L)
 
 # build 2D mesh by extruding the base mesh
-#nlayers = 45  # horizontal layers
-nlayers = 180
+nlayers = 45  # horizontal layers
+#nlayers = 90
+#nlayers = 180
 H = 0.45  # Height position of the model top
 mesh = ExtrudedMesh(m, layers=nlayers, layer_height=H/nlayers)
 
@@ -61,8 +63,9 @@ timestepping = TimesteppingParameters(dt=dt)
 # class containing output parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
-#dumpfreq = 10
-dumpfreq = 800
+dumpfreq = 10
+#dumpfreq = 200
+#dumpfreq = 400
 output = OutputParameters(dirname='boussinesq_2d_lab_tmp', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'])
 
 # class containing physical parameters
@@ -119,13 +122,13 @@ b_b = Function(Vb).interpolate(bref)
 
 # Define constants for bouyancy perturbation:
 g = parameters.g
-A_x1 = Constant(0) 				# Initial amplitude of internal waves in x-direction (e.g., try setting to zero initially)
+#A_x1 = Constant(0) 				# Initial amplitude of internal waves in x-direction (e.g., try setting to zero initially)
 A_z1 = Constant(g/rho_0 * 100./3)	 	# Initial amplitude of internal waves in z-direction
-lmda_x1 = Constant(1.3/100)			# Horizontal wavelength of internal waves
+#lmda_x1 = Constant(1.3/100)			# Horizontal wavelength of internal waves
 #lmda_z1 = Constant(1.3/100)			# Vertical wavelength of internal waves
-lmda_z1 = Constant(20./100)			# Vertical wavelength of internal waves
-k1 = Constant(2*np.pi/lmda_x1)			# Horizontal wavenumber of internal waves
-m1 = Constant(2*np.pi/lmda_z1)			# Vertical wavenumber of internal waves
+#lmda_z1 = Constant(20./100)			# Vertical wavelength of internal waves
+#k1 = Constant(2*np.pi/lmda_x1)			# Horizontal wavenumber of internal waves
+#m1 = Constant(2*np.pi/lmda_z1)			# Vertical wavenumber of internal waves
 
 # Define bouyancy perturbation to represent background soup of internal waves in idealised lab scenario of Park et al.
 #b_pert = A_x1*sin(k1*x[0]) + A_z1/2.*sin(m1*x[1])
