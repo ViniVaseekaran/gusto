@@ -20,7 +20,9 @@ class BaseTimestepper(object):
 
         self.state = state
         self.advection_dict = advection_dict
-        self.diffusion_dict = diffusion_dict
+        self.diffusion_dict = {}
+        if diffusion_dict is not None:
+          self.diffusion_dict.update(diffusion_dict)
 
     def _apply_bcs(self):
         """
@@ -60,9 +62,6 @@ class Timestepper(BaseTimestepper):
         super(Timestepper, self).__init__(state, advection_dict, diffusion_dict)
         self.linear_solver = linear_solver
         self.forcing = forcing
-        self.diffusion_dict = {}
-        if diffusion_dict is not None:
-            self.diffusion_dict.update(diffusion_dict)
         if physics_list is not None:
             self.physics_list = physics_list
         else:
@@ -163,7 +162,7 @@ class Timestepper(BaseTimestepper):
 
 class AdvectionTimestepper(BaseTimestepper):
 
-    def __init__(self, state, advection_dict, diffusion_dict, physics_list=None):
+    def __init__(self, state, advection_dict, diffusion_dict=None, physics_list=None):
 
         super(AdvectionTimestepper, self).__init__(state, advection_dict, diffusion_dict)
 
