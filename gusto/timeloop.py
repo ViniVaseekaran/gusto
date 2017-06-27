@@ -22,7 +22,7 @@ class BaseTimestepper(object):
         self.advection_dict = advection_dict
         self.diffusion_dict = {}
         if diffusion_dict is not None:
-          self.diffusion_dict.update(diffusion_dict)
+            self.diffusion_dict.update(diffusion_dict)
 
     def _apply_bcs(self):
         """
@@ -196,10 +196,10 @@ class AdvectionTimestepper(BaseTimestepper):
             for physics in self.physics_list:
                 physics.apply()
 
-	    with timed_stage("Diffusion"):
-              for name, diffusion in self.diffusion_dict.iteritems():
-                 field = getattr(state.fields, name)
-                 diffusion.apply(field, field)
+            with timed_stage("Diffusion"):
+                for name, diffusion in self.diffusion_dict.iteritems():
+                    field = getattr(state.fields, name)
+                    diffusion.apply(field, field)
 
             state.dump()
 
