@@ -224,6 +224,39 @@ class IncompressibleForcing(Forcing):
             p_out.assign(self.divu)
 
 
+class RandomIncompressibleForcing(IncompressibleForcing):
+
+    def _build_forcing_solvers(self):
+
+        import numpy as np
+        super(RandomIncompressibleForcing, self)._build_forcing_solvers()
+        Vb = self.state.spaces("HDiv_v")
+        F = TrialFunction(Vb)
+        gamma = TestFunction(Vb)
+        self.bF = Function(Vb)
+
+        r = Function(Vb).assign(Constant(0.0))
+        rho_0 = Constant(1090.95075)
+        g = self.state.parameters.g
+        A_z1 = Constant(g/rho_0 * 100./3)
+        r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
+        b_pert = r*A_z1/2.
+        a = gamma*F*dx
+        L = self.scaling*gamma*b_pert*dx
+
+        b_forcing_problem = LinearVariationalProblem(
+            a, L, self.bF)
+
+        self.b_forcing_solver = LinearVariationalSolver(b_forcing_problem)
+
+    def apply(self, scaling, x_in, x_nl, x_out, **kwargs):
+
+        super(IncompressibleForcing, self).apply(scaling, x_in, x_nl, x_out, **kwargs)
+        self.b_forcing_solver.solve()  # places forcing in self.bF
+        _, _, b_out = self.x_out.split()
+        b_out += self.bF
+
+
 class EadyForcing(IncompressibleForcing):
     """
     Forcing class for Eady Boussinesq equations.
