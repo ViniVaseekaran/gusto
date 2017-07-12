@@ -66,12 +66,12 @@ timestepping = TimesteppingParameters(dt=dt)
 dumpfreq = 10
 #dumpfreq = 200
 #dumpfreq = 400
-output = OutputParameters(dirname='boussinesq_2d_lab_tmp', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'])
+output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'])
 
 # class containing physical parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
-rho_0 = Constant(1090.95075)
+rho_0 = 1090.95075
 #N=1.957 (run 18), N=1.1576 (run 16), N=0.5916 (run 14), N=0.2
 parameters = CompressibleParameters(N=1.957, p_0=106141.3045)
 
@@ -120,24 +120,30 @@ bref = N**2*(x[1]-H)
 Vb = b0.function_space()
 b_b = Function(Vb).interpolate(bref)
 
-# Define constants for bouyancy perturbation:
-g = parameters.g
-#A_x1 = Constant(0) 				# Initial amplitude of internal waves in x-direction (e.g., try setting to zero initially)
-A_z1 = Constant(g/rho_0 * 100./3)	 	# Initial amplitude of internal waves in z-direction
-#lmda_x1 = Constant(1.3/100)			# Horizontal wavelength of internal waves
-#lmda_z1 = Constant(1.3/100)			# Vertical wavelength of internal waves
-#lmda_z1 = Constant(20./100)			# Vertical wavelength of internal waves
-#k1 = Constant(2*np.pi/lmda_x1)			# Horizontal wavenumber of internal waves
-#m1 = Constant(2*np.pi/lmda_z1)			# Vertical wavenumber of internal waves
-
 # Define bouyancy perturbation to represent background soup of internal waves in idealised lab scenario of Park et al.
-#b_pert = A_x1*sin(k1*x[0]) + A_z1/2.*sin(m1*x[1])
+g = parameters.g
+#lmda_x1 = 2./100				# Horizontal wavelength of internal waves
+#lmda_x1 = 20./100				# Horizontal wavelength of internal waves
+lmda_z1 = 2./100				# Vertical wavelength of internal waves
+#k1 = 2*pi/lmda_x1				# Horizontal wavenumber of internal waves
+m1 = 2*pi/lmda_z1				# Vertical wavenumber of internal waves
+#A_x1 = g/rho_0 * 100./3 * 1/k1			# Initial amplitude of internal waves in x-direction
+A_z1 = g/rho_0 * 100./3  			# Initial amplitude of internal waves in z-direction
+#print(A_z1)
+
+#b_pert = A_x1/2.*sin(k1*x[0]) + A_z1/2.*sin(m1*x[1])
+#b_pert = A_z1/2. * sin(k1*x[0]+m1*x[1])
+b_pert = A_z1/2. * sin(m1*x[1])
+
+
 #sigma = 0.01
 #b_pert = A_z1*exp( -( x[1] - H/2 )**2 / (2*sigma**2) )
 
-r = Function(b0.function_space()).assign(Constant(0.0))
-r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
-b_pert = r*A_z1/2.
+#r = Function(b0.function_space()).assign(Constant(0.0))
+#r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
+#b_pert = r*A_z1/2.
+#b_pert = r*A_z1/4.
+#b_pert = r*A_z1/6.
 
 #b_pert = sp.Piecewise( (0, x[1] < H/2-0.01), (0, x[1] > H/2+0.01), (A_z1, H/2-0.01 >= x[1] <= H/2+0.01, True) ) - doesn't work
 #b_pert = sp.integrate( A_z1 * DiracDelta(x[1]-H/2), (x[1],0,H) ) - doesn't work
@@ -179,7 +185,14 @@ linear_solver = IncompressibleSolver(state, L, params=linear_solver_params)
 ##############################################################################
 # Set up forcing
 ##############################################################################
+
+#wind = state.fields("u") 
+#w = wind[1]
+#omega = 2.*2*pi
+#F_t = sin(omega*state.time) 
+
 forcing = IncompressibleForcing(state)
+#forcing = RandomIncompressibleForcing(state)
 
 
 ##############################################################################
@@ -206,7 +219,7 @@ diffusion_dict = {"u": InteriorPenalty(state, Vu, kappa=Constant(1.*10**(-6)),
 ##############################################################################
 # build time stepper
 ##############################################################################
-stepper = Timestepper(state, advection_dict, linear_solver, forcing, diffusion_dict)
+stepper = Timestepper(state, advection_dict, linear_solver, forcing)
 
 ##############################################################################
 # Run!
