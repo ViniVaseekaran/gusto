@@ -243,7 +243,11 @@ class RandomIncompressibleForcing(IncompressibleForcing):
         g = self.state.parameters.g
         A_z1 = Constant(g/rho_0 * 100./3)
         r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
-        b_pert = r*A_z1/2.
+
+        #b_pert = r*A_z1/2.
+        #b_pert = r*A_z1/4.
+        b_pert = r*A_z1/6.
+
         a = gamma*F*dx
         L = self.scaling*gamma*b_pert*dx
 

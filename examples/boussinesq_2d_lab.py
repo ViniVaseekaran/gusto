@@ -77,7 +77,7 @@ parameters = CompressibleParameters(N=1.957, p_0=106141.3045)
 
 # Physical parameters adjusted for idealised lab experiment of Park et al. (1994):
 # The value of the background buoyancy frequency N is that for their run number 18, which has clear stair-step features.
-# p_0 was found by assuming an initially hydrostatic fluid and a reference density rho_0=1090.95075 kg m^(-3).
+# p_0 was found by assuming an initially hydrostatic fluid and a reference density rho0=1090.95075 kg m^(-3).
 # The reference density was found by estimating drho/dz from Fig. 7a of Park et al. (1994), converting to SI units,
 # and then using the N^2 value above.
 # p_0=106141.3045
@@ -128,7 +128,7 @@ lmda_z1 = 2./100				# Vertical wavelength of internal waves
 #k1 = 2*pi/lmda_x1				# Horizontal wavenumber of internal waves
 m1 = 2*pi/lmda_z1				# Vertical wavenumber of internal waves
 #A_x1 = g/rho_0 * 100./3 * 1/k1			# Initial amplitude of internal waves in x-direction
-A_z1 = g/rho_0 * 100./3  			# Initial amplitude of internal waves in z-direction
+A_z1 = g/rho_0 * 100./3 * 1/m1 			# Initial amplitude of internal waves in z-direction
 #print(A_z1)
 
 #b_pert = A_x1/2.*sin(k1*x[0]) + A_z1/2.*sin(m1*x[1])

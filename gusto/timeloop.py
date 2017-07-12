@@ -108,6 +108,8 @@ class Timestepper(BaseTimestepper):
             #outfile.write(state.field_dict['b'])
             outfile.write(str(state.field_dict['b'].at([0.1,0.22]))+"\n")
 
+            #state.time.assign(t)
+
             t += dt
             with timed_stage("Apply forcing terms"):
                 self.forcing.apply((1-alpha)*dt, state.xn, state.xn,

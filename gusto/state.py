@@ -83,7 +83,7 @@ class State(object):
     """
 
     def __init__(self, mesh, vertical_degree=None, horizontal_degree=1,
-                 family="RT",
+                 family="RT", 
                  Coriolis=None, sponge_function=None,
                  geopotential_form=False,
                  timestepping=None,
@@ -92,7 +92,7 @@ class State(object):
                  diagnostics=None,
                  fieldlist=None,
                  diagnostic_fields=None):
-
+        
         self.Omega = Coriolis
         self.mu = sponge_function
         self.geopotential_form = geopotential_form
