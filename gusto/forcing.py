@@ -239,15 +239,28 @@ class RandomIncompressibleForcing(IncompressibleForcing):
         self.bF = Function(Vb)
 
         r = Function(Vb).assign(Constant(0.0))
-        rho_0 = Constant(1090.95075)
+ 
         g = self.state.parameters.g
-        A_z1 = Constant(g/rho_0 * 100./3)
+
+        rho0_13 = 1006.47
+        drho0_dz13 = -122.09
+        dgamma13 = 100./3
+        delta_z = 2./100
+        rhoprime13 = dgamma13 * delta_z
+        bprime13 = g/rho0_13 * rhoprime13
+
+        rho0_18 = 1090.95075
+        drho0_dz18 = -425.9
+        dgamma18 = dgamma13 * drho0_dz18/drho0_dz13
+        bprime_ratio = rho0_18/rho0_13 * dgamma13/dgamma18
+        bprime18 = bprime13/bprime_ratio
+        A_z1 = bprime18
+        
         r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
-
-        #b_pert = r*A_z1/2.
-        #b_pert = r*A_z1/4.
-        b_pert = r*A_z1/6.
-
+        b_pert = r*A_z1/2.
+     
+        
+  
         a = gamma*F*dx
         L = self.scaling*gamma*b_pert*dx
 
