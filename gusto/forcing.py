@@ -273,7 +273,7 @@ class RandomIncompressibleForcing(IncompressibleForcing):
 
         super(IncompressibleForcing, self).apply(scaling, x_in, x_nl, x_out, **kwargs)
         self.b_forcing_solver.solve()  # places forcing in self.bF
-        _, _, b_out = self.x_out.split()
+        _, _, b_out = x_out.split()
         b_out += self.bF
 
 
