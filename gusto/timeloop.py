@@ -68,7 +68,7 @@ class Timestepper(BaseTimestepper):
         else:
             self.physics_list = []
 
-        if(isinstance(self.linear_solver, IncompressibleSolver)):
+        if isinstance(self.linear_solver, IncompressibleSolver):
             self.incompressible = True
         else:
             self.incompressible = False
@@ -190,7 +190,7 @@ class AdvectionTimestepper(BaseTimestepper):
         state.xnp1.assign(state.xn)
 
         state.setup_dump()
-        state.dump()
+        state.dump(t)
 
         while t < tmax - 0.5*dt:
             if state.output.Verbose:
@@ -212,8 +212,6 @@ class AdvectionTimestepper(BaseTimestepper):
                 for name, diffusion in self.diffusion_dict.iteritems():
                     field = getattr(state.fields, name)
                     diffusion.apply(field, field)
-
-            state.dump()
 
         state.diagnostic_dump()
 
