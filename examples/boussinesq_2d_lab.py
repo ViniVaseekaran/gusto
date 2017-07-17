@@ -63,7 +63,7 @@ timestepping = TimesteppingParameters(dt=dt)
 # class containing output parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
-dumpfreq = 10
+dumpfreq = 20
 #dumpfreq = 200
 #dumpfreq = 400
 output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'])
@@ -71,7 +71,7 @@ output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
 # class containing physical parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
-rho_0 = 1090.95075
+rho0 = 1090.95075
 #N=1.957 (run 18), N=1.1576 (run 16), N=0.5916 (run 14), N=0.2
 parameters = CompressibleParameters(N=1.957, p_0=106141.3045)
 
@@ -126,22 +126,37 @@ g = parameters.g
 #lmda_x1 = 20./100				# Horizontal wavelength of internal waves
 lmda_z1 = 2./100				# Vertical wavelength of internal waves
 #k1 = 2*pi/lmda_x1				# Horizontal wavenumber of internal waves
-m1 = 2*pi/lmda_z1				# Vertical wavenumber of internal waves
-#A_x1 = g/rho_0 * 100./3 * 1/k1			# Initial amplitude of internal waves in x-direction
-A_z1 = g/rho_0 * 100./3 * 1/m1 			# Initial amplitude of internal waves in z-direction
-#print(A_z1)
+#m1 = 2*pi/lmda_z1				# Vertical wavenumber of internal waves
+
+#From Park et al run 13:
+rho0_13 = 1006.47
+drho0_dz13 = -122.09
+dgamma13 = 100./3
+rhoprime13 = dgamma13 * lmda_z1
+bprime13 = g/rho0_13 * rhoprime13
+
+#No clear number for buoyancy perturbation for run 18 -
+#Try to scale perturbations using background stratification
+#From Park et al run 18:
+rho0_18 = 1090.95075
+drho0_dz18 = -425.9
+dgamma18 = dgamma13 * drho0_dz18/drho0_dz13
+
+bprime_ratio = rho0_18/rho0_13 * dgamma13/dgamma18
+bprime18 = bprime13/bprime_ratio
+A_z1 = bprime18
+
 
 #b_pert = A_x1/2.*sin(k1*x[0]) + A_z1/2.*sin(m1*x[1])
 #b_pert = A_z1/2. * sin(k1*x[0]+m1*x[1])
-b_pert = A_z1/2. * sin(m1*x[1])
-
+#b_pert = A_z1/2. * sin(m1*x[1])
 
 #sigma = 0.01
 #b_pert = A_z1*exp( -( x[1] - H/2 )**2 / (2*sigma**2) )
 
-#r = Function(b0.function_space()).assign(Constant(0.0))
-#r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
-#b_pert = r*A_z1/2.
+r = Function(b0.function_space()).assign(Constant(0.0))
+r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
+b_pert = r*A_z1/2.
 #b_pert = r*A_z1/4.
 #b_pert = r*A_z1/6.
 
@@ -191,8 +206,8 @@ linear_solver = IncompressibleSolver(state, L, params=linear_solver_params)
 #omega = 2.*2*pi
 #F_t = sin(omega*state.time) 
 
-forcing = IncompressibleForcing(state)
-#forcing = RandomIncompressibleForcing(state)
+#forcing = IncompressibleForcing(state)
+forcing = RandomIncompressibleForcing(state)
 
 
 ##############################################################################
