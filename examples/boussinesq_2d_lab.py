@@ -1,6 +1,6 @@
 from gusto import *
 from firedrake import PeriodicIntervalMesh, ExtrudedMesh, \
-    sin, exp, pi, SpatialCoordinate
+    sin, exp, pi, SpatialCoordinate, Constant
 import numpy as np
 import sympy as sp
 from sympy.stats import Normal
@@ -202,8 +202,8 @@ linear_solver = IncompressibleSolver(state, L, params=linear_solver_params)
 ##############################################################################
 
 #omega = 2.*2*pi
-f_ux = 0.
-f_uz = 0.
+f_ux = Constant(0.)
+f_uz = Constant(0.)
 #f_uz = A_z1/2*omega*cos(x[0]*k1 + x[1]*m1 + omega*state.t)
 f_u = as_vector([f_ux,f_uz])
 
