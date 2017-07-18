@@ -63,7 +63,7 @@ timestepping = TimesteppingParameters(dt=dt)
 # class containing output parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
-dumpfreq = 20
+dumpfreq = 20*10
 #dumpfreq = 200
 #dumpfreq = 400
 output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'])
