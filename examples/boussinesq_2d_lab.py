@@ -201,13 +201,15 @@ linear_solver = IncompressibleSolver(state, L, params=linear_solver_params)
 # Set up forcing
 ##############################################################################
 
-#wind = state.fields("u") 
-#w = wind[1]
 #omega = 2.*2*pi
-#F_t = sin(omega*state.time) 
+f_ux = 0.
+f_uz = 0.
+#f_uz = A_z1/2*omega*cos(x[0]*k1 + x[1]*m1 + omega*state.t)
+f_u = as_vector([f_ux,f_uz])
 
 #forcing = IncompressibleForcing(state)
-forcing = RandomIncompressibleForcing(state)
+forcing = IncompressibleForcing(state, extra_terms=f_u)
+#forcing = RandomIncompressibleForcing(state)
 
 
 ##############################################################################
