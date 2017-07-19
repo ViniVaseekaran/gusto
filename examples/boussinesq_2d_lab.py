@@ -1,6 +1,6 @@
 from gusto import *
 from firedrake import PeriodicIntervalMesh, ExtrudedMesh, \
-    sin, exp, pi, SpatialCoordinate
+    cos, sin, exp, pi, SpatialCoordinate
 import numpy as np
 import sympy as sp
 from sympy.stats import Normal
@@ -123,10 +123,10 @@ b_b = Function(Vb).interpolate(bref)
 # Define bouyancy perturbation to represent background soup of internal waves in idealised lab scenario of Park et al.
 g = parameters.g
 #lmda_x1 = 2./100				# Horizontal wavelength of internal waves
-#lmda_x1 = 20./100				# Horizontal wavelength of internal waves
+lmda_x1 = 20./100				# Horizontal wavelength of internal waves
 lmda_z1 = 2./100				# Vertical wavelength of internal waves
-#k1 = 2*pi/lmda_x1				# Horizontal wavenumber of internal waves
-#m1 = 2*pi/lmda_z1				# Vertical wavenumber of internal waves
+k1 = 2*pi/lmda_x1				# Horizontal wavenumber of internal waves
+m1 = 2*pi/lmda_z1				# Vertical wavenumber of internal waves
 
 #From Park et al run 13:
 rho0_13 = 1006.47
@@ -201,10 +201,10 @@ linear_solver = IncompressibleSolver(state, L, params=linear_solver_params)
 # Set up forcing
 ##############################################################################
 
-#omega = 2.*2*pi
+omega = 2.*2*pi
 f_ux = 0.
-f_uz = 0.
-#f_uz = A_z1/2*omega*cos(x[0]*k1 + x[1]*m1 + omega*state.t)
+#f_uz = 0.
+f_uz = A_z1/2*omega*cos(x[0]*k1 + x[1]*m1 - omega*state.t)
 f_u = as_vector([f_ux,f_uz])
 
 #forcing = IncompressibleForcing(state)
