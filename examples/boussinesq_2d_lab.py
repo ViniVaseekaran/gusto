@@ -1,6 +1,6 @@
 from gusto import *
 from firedrake import PeriodicIntervalMesh, ExtrudedMesh, \
-    cos, sin, exp, pi, SpatialCoordinate
+    cos, sin, exp, pi, SpatialCoordinate, Constant
 import numpy as np
 import sympy as sp
 from sympy.stats import Normal
