@@ -160,6 +160,10 @@ class State(object):
                 self.Phi = Function(V).interpolate(Expression("x[1]"))
             self.Phi *= parameters.g
 
+        #  Constant to hold current time
+        self.t = Constant(0.0)
+
+
     def setup_dump(self, pickup=False):
 
         # setup dump files
