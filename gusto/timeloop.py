@@ -96,12 +96,10 @@ class Timestepper(BaseTimestepper):
 
         with timed_stage("Dump output"):
             state.setup_dump(pickup)
-            t = state.dump(t, diagnostic_everydump, pickup)
+            t = state.dump(t, pickup)
         
         #outfile = File("results/tmp/time_series_b.pvd")
         #outfile = open("results/tmp/time_series_b.txt","w") 
-
-            t = state.dump(t, pickup)
 
         while t < tmax - 0.5*dt:
             if state.output.Verbose:
@@ -165,11 +163,9 @@ class Timestepper(BaseTimestepper):
                     physics.apply()
 
             with timed_stage("Dump output"):
-                state.dump(t, diagnostic_everydump, pickup=False)
+                state.dump(t, pickup=False)
         
             state.t.assign(t)        
-
-            state.dump(t, pickup=False)
 
         #outfile.close()
     
