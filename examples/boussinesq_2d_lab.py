@@ -21,7 +21,7 @@ if '--running-tests' in sys.argv:
                             'fieldsplit_0_ksp_type':'preonly',
                             'fieldsplit_1_ksp_type':'preonly'}
 else:
-    tmax = 3600*6.
+    tmax = 3600*48.
     # use default linear solver parameters (i.e. mumps)
     linear_solver_params = None
 
@@ -66,7 +66,9 @@ timestepping = TimesteppingParameters(dt=dt)
 dumpfreq = 20*10
 #dumpfreq = 200
 #dumpfreq = 400
-output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'])
+points = [0.1,0.22]
+output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'], 
+            point_data={'b': points}, pointwise_everydump=True)
 
 # class containing physical parameters
 # all values not explicitly set here use the default values provided
@@ -122,17 +124,12 @@ b_b = Function(Vb).interpolate(bref)
 
 # Define bouyancy perturbation to represent background soup of internal waves in idealised lab scenario of Park et al.
 g = parameters.g
-#lmda_x1 = 2./100				# Horizontal wavelength of internal waves
-lmda_x1 = 20./100				# Horizontal wavelength of internal waves
-lmda_z1 = 2./100				# Vertical wavelength of internal waves
-k1 = 2*pi/lmda_x1				# Horizontal wavenumber of internal waves
-m1 = 2*pi/lmda_z1				# Vertical wavenumber of internal waves
 
-#From Park et al run 13:
 rho0_13 = 1006.47
 drho0_dz13 = -122.09
 dgamma13 = 100./3
-rhoprime13 = dgamma13 * lmda_z1
+dz_b = 2./100
+rhoprime13 = dgamma13 * dz_b
 bprime13 = g/rho0_13 * rhoprime13
 
 #No clear number for buoyancy perturbation for run 18 -
@@ -199,12 +196,16 @@ linear_solver = IncompressibleSolver(state, L, params=linear_solver_params)
 
 ##############################################################################
 # Set up forcing
-##############################################################################
+#############################################################################
+lmda_x1 = 2.0/100                               # Horizontal wavelength of internal waves
+lmda_z1 = 2.0/100                               # Vertical wavelength of internal waves
+k1 = 2*pi/lmda_x1                               # Horizontal wavenumber of internal waves
+m1 = 2*pi/lmda_z1                               # Vertical wavenumber of internal waves
 
-omega = 2.*2*pi
+omega = 0.2*2*pi
 f_ux = 0.
 #f_uz = 0.
-f_uz = A_z1/2*omega*cos(x[0]*k1 + x[1]*m1 - omega*state.t)
+f_uz = A_z1/2*sin(x[0]*k1 + x[1]*m1 - omega*state.t)
 f_u = as_vector([f_ux,f_uz])
 
 #forcing = IncompressibleForcing(state)
@@ -218,8 +219,19 @@ forcing = IncompressibleForcing(state, extra_terms=f_u)
 # mu is a numerical parameter
 # kappa is the diffusion constant for each variable
 # Note that molecular diffusion coefficients were taken from Lautrup, 2005:
-# Kinematic viscosity = 1.*10**(-6)
-# Heat diffusivity = 1.4*10**(-7)
+kappa_u = 1.*10**(-6.)
+kappa_b = 1.4*10**(-7.)
+
+#kappa_u = 1.*10**(-6.)*10
+#kappa_b = 1.4*10**(-7.)*10
+
+#kappa_u = 1.*10**(-6.)*100
+#kappa_b = 1.4*10**(-7.)*100
+
+#Eddy diffusivities:
+#kappa_u = 10.**(-2.)
+#kappa_b = 10.**(-2.)
+
 Vu = u0.function_space()
 Vb = state.spaces("HDiv_v")
 delta = L/columns 		#Grid resolution (same in both directions).
@@ -227,16 +239,17 @@ delta = L/columns 		#Grid resolution (same in both directions).
 bcs_u = [DirichletBC(Vu, 0.0, "bottom"), DirichletBC(Vu, 0.0, "top")]
 bcs_b = [DirichletBC(Vb, -N**2*H, "bottom"), DirichletBC(Vb, 0.0, "top")]
 
-diffusion_dict = {"u": InteriorPenalty(state, Vu, kappa=Constant(1.*10**(-6)),
+diffusion_dict = {"u": InteriorPenalty(state, Vu, kappa=kappa_u,
                                            mu=Constant(10./delta), bcs=bcs_u),
-                      "b": InteriorPenalty(state, Vb, kappa=Constant(1.4*10**(-7)),
+                      "b": InteriorPenalty(state, Vb, kappa=kappa_b,
                                                mu=Constant(10./delta), bcs=bcs_b)}
 
 
 ##############################################################################
 # build time stepper
 ##############################################################################
-stepper = Timestepper(state, advection_dict, linear_solver, forcing)
+#stepper = Timestepper(state, advection_dict, linear_solver, forcing)
+stepper = Timestepper(state, advection_dict, linear_solver, forcing, diffusion_dict)
 
 ##############################################################################
 # Run!
