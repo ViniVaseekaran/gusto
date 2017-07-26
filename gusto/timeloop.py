@@ -104,7 +104,7 @@ class Timestepper(BaseTimestepper):
         while t < tmax - 0.5*dt:
             if state.output.Verbose:
                 print "STEP", t, dt
-           
+ 
             #outfile.write(state.field_dict['b'])
             #outfile.write(str(state.field_dict['b'].at([0.1,0.22]))+"\n")
 
@@ -164,8 +164,6 @@ class Timestepper(BaseTimestepper):
 
             with timed_stage("Dump output"):
                 state.dump(t, pickup=False)
-        
-            state.t.assign(t)        
 
         #outfile.close()
     
