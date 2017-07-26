@@ -75,7 +75,7 @@ class Timestepper(BaseTimestepper):
 
         state.xb.assign(state.xn)
 
-    def run(self, t, tmax, diagnostic_everydump=False, pickup=False):
+    def run(self, t, tmax, pickup=False):
         state = self.state
 
         xstar_fields = {name: func for (name, func) in
@@ -99,16 +99,20 @@ class Timestepper(BaseTimestepper):
             t = state.dump(t, diagnostic_everydump, pickup)
         
         #outfile = File("results/tmp/time_series_b.pvd")
-        outfile = open("results/tmp/time_series_b.txt","w") 
+        #outfile = open("results/tmp/time_series_b.txt","w") 
+
+            t = state.dump(t, pickup)
 
         while t < tmax - 0.5*dt:
             if state.output.Verbose:
                 print "STEP", t, dt
            
             #outfile.write(state.field_dict['b'])
-            outfile.write(str(state.field_dict['b'].at([0.1,0.22]))+"\n")
+            #outfile.write(str(state.field_dict['b'].at([0.1,0.22]))+"\n")
 
             t += dt
+            state.t.assign(t)
+
             with timed_stage("Apply forcing terms"):
                 self.forcing.apply((1-alpha)*dt, state.xn, state.xn,
                                    state.xstar, mu_alpha=mu_alpha[0])
@@ -165,9 +169,12 @@ class Timestepper(BaseTimestepper):
         
             state.t.assign(t)        
 
-        outfile.close()
+            state.dump(t, pickup=False)
+
+        #outfile.close()
     
         state.diagnostic_dump()
+        state.pointwise_dump()
         print "TIMELOOP complete. t= " + str(t) + " tmax=" + str(tmax)
 
 
