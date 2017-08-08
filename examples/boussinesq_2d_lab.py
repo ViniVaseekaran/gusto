@@ -1,6 +1,6 @@
 from gusto import *
 from firedrake import PeriodicIntervalMesh, ExtrudedMesh, \
-    cos, sin, exp, pi, SpatialCoordinate, Constant
+    cos, sin, exp, pi, SpatialCoordinate, Constant, Function, as_vector, DirichletBC
 import numpy as np
 import sympy as sp
 from sympy.stats import Normal
@@ -66,9 +66,8 @@ timestepping = TimesteppingParameters(dt=dt)
 dumpfreq = 20*10
 #dumpfreq = 200
 #dumpfreq = 400
-points = [0.1,0.22]
-output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'], 
-            point_data={'b': points}, pointwise_everydump=True)
+points = np.array([[0.1,0.22]])
+output = OutputParameters(Verbose=True, dirname='tmp_hyb', dumpfreq=1, dumplist=['u','b'], perturbation_fields=['b'], point_data=[('b', points)])
 
 # class containing physical parameters
 # all values not explicitly set here use the default values provided
@@ -167,10 +166,10 @@ b0.interpolate(b_b + b_pert)
 incompressible_hydrostatic_balance(state, b_b, p0, top=False)
 
 # pass these initial conditions to the state.initialise method
-state.initialise({"u": u0, "p": p0, "b": b0})
+state.initialise([("u", u0), ("p", p0), ("b", b0)])
 
 # set the background buoyancy
-state.set_reference_profiles({"b": b_b})
+state.set_reference_profiles([("b", b_b)])
 
 ##############################################################################
 # Set up advection schemes
@@ -185,9 +184,9 @@ if supg:
 else:
     beqn = EmbeddedDGAdvection(state, Vb,
                                equation_form="advective")
-advection_dict = {}
-advection_dict["u"] = ThetaMethod(state, u0, ueqn)
-advection_dict["b"] = SSPRK3(state, b0, beqn)
+advected_fields = []
+advected_fields.append(("u", ThetaMethod(state, u0, ueqn)))
+advected_fields.append(("b", SSPRK3(state, b0, beqn)))
 
 ##############################################################################
 # Set up linear solver for the timestepping scheme
@@ -239,17 +238,18 @@ delta = L/columns 		#Grid resolution (same in both directions).
 bcs_u = [DirichletBC(Vu, 0.0, "bottom"), DirichletBC(Vu, 0.0, "top")]
 bcs_b = [DirichletBC(Vb, -N**2*H, "bottom"), DirichletBC(Vb, 0.0, "top")]
 
-diffusion_dict = {"u": InteriorPenalty(state, Vu, kappa=kappa_u,
-                                           mu=Constant(10./delta), bcs=bcs_u),
-                      "b": InteriorPenalty(state, Vb, kappa=kappa_b,
-                                               mu=Constant(10./delta), bcs=bcs_b)}
+diffused_fields = []
+diffused_fields.append(("u", InteriorPenalty(state, Vu, kappa=kappa_u,
+                                           mu=Constant(10./delta), bcs=bcs_u)))
+diffused_fields.append(("b", InteriorPenalty(state, Vb, kappa=kappa_b,
+                                             mu=Constant(10./delta), bcs=bcs_b)))
 
 
 ##############################################################################
 # build time stepper
 ##############################################################################
 #stepper = Timestepper(state, advection_dict, linear_solver, forcing)
-stepper = Timestepper(state, advection_dict, linear_solver, forcing, diffusion_dict)
+stepper = Timestepper(state, advected_fields, linear_solver, forcing, diffused_fields)
 
 ##############################################################################
 # Run!
