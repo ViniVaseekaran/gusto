@@ -51,12 +51,9 @@ class OutputParameters(Configuration):
     steady_state_error_fields = []
     #: List of fields for computing perturbations
     perturbation_fields = []
-    #: Dictionary of fields and points at which to dump them
-    point_data = {}
-    #: Flag to indicate whether we should dump diagnostics at every timestep
-    diagnostic_everydump = False
-    #: Flag to indicate whether we should dump point data at every timestep
-    pointwise_everydump = False
+    #: List of ordered pairs (name, points) where name is the field
+    # name and points is the points at which to dump them
+    point_data = []
 
 
 class CompressibleParameters(Configuration):
