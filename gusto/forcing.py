@@ -1,12 +1,14 @@
-from __future__ import absolute_import
 from abc import ABCMeta, abstractmethod
 from firedrake import Function, split, TrialFunction, TestFunction, \
     FacetNormal, inner, dx, cross, div, jump, avg, dS_v, \
     DirichletBC, LinearVariationalProblem, LinearVariationalSolver, \
-    dot, dS, Constant, warning, Expression, as_vector
+    dot, dS, Constant, warning, as_vector, SpatialCoordinate
 
 
-class Forcing(object):
+__all__ = ["CompressibleForcing", "IncompressibleForcing", "EadyForcing", "CompressibleEadyForcing", "ShallowWaterForcing", "NoForcing", "exner", "exner_rho", "exner_theta"]
+
+
+class Forcing(object, metaclass=ABCMeta):
     """
     Base class for forcing terms for Gusto.
 
@@ -19,7 +21,6 @@ class Forcing(object):
     :arg extra_terms: extra terms to add to the u component of the forcing
     term - these will be multiplied by the appropriate test function.
     """
-    __metaclass__ = ABCMeta
 
     def __init__(self, state, euler_poincare=True, linear=False, extra_terms=None):
         self.state = state
@@ -87,7 +88,7 @@ class Forcing(object):
         L = self.scaling * L
         # sponge term has a separate scaling factor as it is always implicit
         if self.sponge:
-            L += self.mu_scaling*self.sponge_term()
+            L -= self.mu_scaling*self.sponge_term()
         return L
 
     def _build_forcing_solvers(self):
@@ -258,7 +259,7 @@ class RandomIncompressibleForcing(IncompressibleForcing):
 
         r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
         b_pert = r*A_z1/2.
- 
+
         a = gamma*F*dx
         L = self.scaling*gamma*b_pert*dx
 
@@ -286,7 +287,8 @@ class EadyForcing(IncompressibleForcing):
         dbdy = self.state.parameters.dbdy
         H = self.state.parameters.H
         Vp = self.state.spaces("DG")
-        eady_exp = Function(Vp).interpolate(Expression(("x[2]-H/2"), H=H))
+        _, _, z = SpatialCoordinate(self.state.mesh)
+        eady_exp = Function(Vp).interpolate(z-H/2.)
 
         L -= self.scaling*dbdy*eady_exp*inner(self.test, as_vector([0., 1., 0.]))*dx
         return L

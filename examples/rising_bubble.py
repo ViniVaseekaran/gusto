@@ -1,6 +1,6 @@
 from gusto import *
-from firedrake import Expression, PeriodicIntervalMesh, ExtrudedMesh, \
-    SpatialCoordinate
+from firedrake import PeriodicIntervalMesh, ExtrudedMesh, \
+    SpatialCoordinate, Constant, pi, cos, Function, sqrt, conditional
 import sys
 
 dt = 1.
@@ -44,23 +44,29 @@ Vt = theta0.function_space()
 Vr = rho0.function_space()
 
 # Isentropic background state
-Tsurf = 300.
-thetab = Constant(Tsurf)
+Tsurf = Constant(300.)
 
-theta_b = Function(Vt).interpolate(thetab)
+theta_b = Function(Vt).interpolate(Tsurf)
 rho_b = Function(Vr)
 
 # Calculate hydrostatic Pi
 compressible_hydrostatic_balance(state, theta_b, rho_b, solve_for_rho=True)
 
 x = SpatialCoordinate(mesh)
-theta_pert = Function(Vt).interpolate(Expression("sqrt(pow(x[0]-xc,2)+pow(x[1]-zc,2)) > rc ? 0.0 : 0.25*(1. + cos((pi/rc)*(sqrt(pow((x[0]-xc),2)+pow((x[1]-zc),2)))))", xc=500., zc=350., rc=250.))
+xc = 500.
+zc = 350.
+rc = 250.
+r = sqrt((x[0]-xc)**2 + (x[1]-zc)**2)
+theta_pert = conditional(r > rc, 0., 0.25*(1. + cos((pi/rc)*r)))
 
 theta0.interpolate(theta_b + theta_pert)
 rho0.interpolate(rho_b)
 
-state.initialise({'u': u0, 'rho': rho0, 'theta': theta0})
-state.set_reference_profiles({'rho': rho_b, 'theta': theta_b})
+state.initialise([('u', u0),
+                  ('rho', rho0),
+                  ('theta', theta0)])
+state.set_reference_profiles([('rho', rho_b),
+                              ('theta', theta_b)])
 
 # Set up advection schemes
 ueqn = EulerPoincare(state, Vu)
@@ -73,10 +79,10 @@ if supg:
 else:
     thetaeqn = EmbeddedDGAdvection(state, Vt,
                                    equation_form="advective")
-advection_dict = {}
-advection_dict["u"] = ThetaMethod(state, u0, ueqn)
-advection_dict["rho"] = SSPRK3(state, rho0, rhoeqn)
-advection_dict["theta"] = SSPRK3(state, theta0, thetaeqn)
+advected_fields = []
+advected_fields.append(("u", ThetaMethod(state, u0, ueqn)))
+advected_fields.append(("rho", SSPRK3(state, rho0, rhoeqn)))
+advected_fields.append(("theta", SSPRK3(state, theta0, thetaeqn)))
 
 # Set up linear solver
 schur_params = {'pc_type': 'fieldsplit',
@@ -109,7 +115,7 @@ linear_solver = CompressibleSolver(state, params=schur_params)
 compressible_forcing = CompressibleForcing(state)
 
 # build time stepper
-stepper = Timestepper(state, advection_dict, linear_solver,
+stepper = Timestepper(state, advected_fields, linear_solver,
                       compressible_forcing)
 
 stepper.run(t=0, tmax=tmax)

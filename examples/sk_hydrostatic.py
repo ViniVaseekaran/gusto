@@ -1,6 +1,6 @@
 from gusto import *
 from firedrake import as_vector, SpatialCoordinate,\
-    PeriodicRectangleMesh, ExtrudedMesh, exp, sin
+    PeriodicRectangleMesh, ExtrudedMesh, exp, sin, Function
 import numpy as np
 import sys
 
@@ -77,17 +77,20 @@ compressible_hydrostatic_balance(state, theta_b, rho_b, solve_for_rho=True)
 rho0.assign(rho_b)
 u0.project(as_vector([20.0, 0.0, 0.0]))
 
-state.initialise({'u': u0, 'rho': rho0, 'theta': theta0})
-state.set_reference_profiles({'rho': rho_b, 'theta': theta_b})
+state.initialise([('u', u0),
+                  ('rho', rho0),
+                  ('theta', theta0)])
+state.set_reference_profiles([('rho', rho_b),
+                              ('theta', theta_b)])
 
 # Set up advection schemes
 ueqn = EulerPoincare(state, Vu)
 rhoeqn = AdvectionEquation(state, Vr, equation_form="continuity")
 thetaeqn = SUPGAdvection(state, Vt, supg_params={"dg_direction": "horizontal"})
-advection_dict = {}
-advection_dict["u"] = ThetaMethod(state, u0, ueqn)
-advection_dict["rho"] = SSPRK3(state, rho0, rhoeqn)
-advection_dict["theta"] = SSPRK3(state, theta0, thetaeqn)
+advected_fields = []
+advected_fields.append(("u", ThetaMethod(state, u0, ueqn)))
+advected_fields.append(("rho", SSPRK3(state, rho0, rhoeqn)))
+advected_fields.append(("theta", SSPRK3(state, theta0, thetaeqn)))
 
 # Set up linear solver
 schur_params = {'pc_type': 'fieldsplit',
@@ -120,7 +123,7 @@ balanced_pg = as_vector((0., 1.0e-4*20, 0.))
 compressible_forcing = CompressibleForcing(state, extra_terms=balanced_pg)
 
 # build time stepper
-stepper = Timestepper(state, advection_dict, linear_solver,
+stepper = Timestepper(state, advected_fields, linear_solver,
                       compressible_forcing)
 
 stepper.run(t=0, tmax=tmax)
