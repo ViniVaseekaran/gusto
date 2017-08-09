@@ -1,7 +1,7 @@
 from gusto import *
 from firedrake import as_vector, SpatialCoordinate, \
     PeriodicRectangleMesh, ExtrudedMesh, \
-    cos, sin, cosh, sinh, tanh, pi
+    cos, sin, cosh, sinh, tanh, pi, Function, sqrt
 import sys
 
 day = 24.*60.*60.
@@ -70,8 +70,7 @@ timestepping = TimesteppingParameters(dt=dt)
 output = OutputParameters(dirname='incompressible_eady',
                           dumpfreq=int(tdump/dt),
                           dumplist=['u', 'p', 'b'],
-                          perturbation_fields=['p', 'b'],
-                          diagnostic_everydump=True)
+                          perturbation_fields=['p', 'b'])
 
 # class containing physical parameters
 # all values not explicitly set here use the default values provided
@@ -90,8 +89,8 @@ diagnostics = Diagnostics(*fieldlist)
 diagnostic_fields = [CourantNumber(), VelocityY(),
                      KineticEnergy(), KineticEnergyY(),
                      EadyPotentialEnergy(),
-                     Sum(KineticEnergy(), EadyPotentialEnergy()),
-                     Difference(KineticEnergy(), KineticEnergyY()),
+                     Sum("KineticEnergy", "EadyPotentialEnergy"),
+                     Difference("KineticEnergy", "KineticEnergyY"),
                      GeostrophicImbalance(), TrueResidualV()]
 
 # setup state, passing in the mesh, information on the required finite element
@@ -167,10 +166,13 @@ u_exp = as_vector([u, v, 0.])
 u0.project(u_exp)
 
 # pass these initial conditions to the state.initialise method
-state.initialise({'u': u0, 'p': p0, 'b': b0})
+state.initialise([('u', u0),
+                  ('p', p0),
+                  ('b', b0)])
 
 # set the background profiles
-state.set_reference_profiles({'p': p_b, 'b': b_b})
+state.set_reference_profiles([('p', p_b),
+                              ('b', b_b)])
 
 ##############################################################################
 # Set up advection schemes
@@ -185,9 +187,9 @@ if supg:
 else:
     beqn = EmbeddedDGAdvection(state, Vb,
                                equation_form="advective")
-advection_dict = {}
-advection_dict["u"] = SSPRK3(state, u0, ueqn)
-advection_dict["b"] = SSPRK3(state, b0, beqn)
+advected_fields = []
+advected_fields.append(("u", SSPRK3(state, u0, ueqn)))
+advected_fields.append(("b", SSPRK3(state, b0, beqn)))
 
 ##############################################################################
 # Set up linear solver for the timestepping scheme
@@ -202,7 +204,7 @@ forcing = EadyForcing(state, euler_poincare=False)
 ##############################################################################
 # build time stepper
 ##############################################################################
-stepper = Timestepper(state, advection_dict, linear_solver, forcing)
+stepper = Timestepper(state, advected_fields, linear_solver, forcing)
 
 ##############################################################################
 # Run!

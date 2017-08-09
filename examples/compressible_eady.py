@@ -1,7 +1,7 @@
 from gusto import *
 from firedrake import as_vector, SpatialCoordinate,\
     PeriodicRectangleMesh, ExtrudedMesh, \
-    exp, cos, sin, cosh, sinh, tanh, pi
+    exp, cos, sin, cosh, sinh, tanh, pi, Function, sqrt
 import sys
 
 day = 24.*60.*60.
@@ -53,8 +53,7 @@ timestepping = TimesteppingParameters(dt=dt)
 output = OutputParameters(dirname='compressible_eady',
                           dumpfreq=int(tdump/dt),
                           dumplist=['u', 'rho', 'theta'],
-                          perturbation_fields=['rho', 'theta'],
-                          diagnostic_everydump=True)
+                          perturbation_fields=['rho', 'theta', 'ExnerPi'])
 
 # class containing physical parameters
 # all values not explicitly set here use the default values provided
@@ -68,14 +67,14 @@ diagnostics = Diagnostics(*fieldlist)
 
 # list of diagnostic fields, each defined in a class in diagnostics.py
 diagnostic_fields = [CourantNumber(), VelocityY(),
-                     ExnerPi(), ExnerPi_perturbation(),
+                     ExnerPi(), ExnerPi(reference=True),
                      CompressibleKineticEnergy(),
                      CompressibleKineticEnergyY(),
                      CompressibleEadyPotentialEnergy(),
-                     Sum(CompressibleKineticEnergy(),
-                         CompressibleEadyPotentialEnergy()),
-                     Difference(CompressibleKineticEnergy(),
-                                CompressibleKineticEnergyY())]
+                     Sum("CompressibleKineticEnergy",
+                         "CompressibleEadyPotentialEnergy"),
+                     Difference("CompressibleKineticEnergy",
+                                "CompressibleKineticEnergyY")]
 
 # setup state, passing in the mesh, information on the required finite element
 # function spaces and the classes above
@@ -161,10 +160,13 @@ u_exp = as_vector([u, v, 0.])
 u0.project(u_exp)
 
 # pass these initial conditions to the state.initialise method
-state.initialise({'u': u0, 'rho': rho0, 'theta': theta0})
+state.initialise([('u', u0),
+                  ('rho', rho0),
+                  ('theta', theta0)])
 
 # set the background profiles
-state.set_reference_profiles({'rho': rho_b, 'theta': theta_b})
+state.set_reference_profiles([('rho', rho_b),
+                              ('theta', theta_b)])
 
 ##############################################################################
 # Set up advection schemes
@@ -174,10 +176,10 @@ ueqn = AdvectionEquation(state, Vu)
 rhoeqn = AdvectionEquation(state, Vr, equation_form="continuity")
 thetaeqn = SUPGAdvection(state, Vt, supg_params={"dg_direction": "horizontal"})
 
-advection_dict = {}
-advection_dict["u"] = SSPRK3(state, u0, ueqn)
-advection_dict["rho"] = SSPRK3(state, rho0, rhoeqn)
-advection_dict["theta"] = SSPRK3(state, theta0, thetaeqn)
+advected_fields = []
+advected_fields.append(("u", SSPRK3(state, u0, ueqn)))
+advected_fields.append(("rho", SSPRK3(state, rho0, rhoeqn)))
+advected_fields.append(("theta", SSPRK3(state, theta0, thetaeqn)))
 
 ##############################################################################
 # Set up linear solver for the timestepping scheme
@@ -214,7 +216,7 @@ forcing = CompressibleEadyForcing(state, euler_poincare=False)
 ##############################################################################
 # build time stepper
 ##############################################################################
-stepper = Timestepper(state, advection_dict, linear_solver, forcing)
+stepper = Timestepper(state, advected_fields, linear_solver, forcing)
 
 ##############################################################################
 # Run!

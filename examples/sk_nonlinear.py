@@ -1,6 +1,7 @@
 from gusto import *
+import itertools
 from firedrake import as_vector, SpatialCoordinate, PeriodicIntervalMesh, \
-    ExtrudedMesh, exp, sin
+    ExtrudedMesh, exp, sin, Function
 import numpy as np
 import sys
 
@@ -20,12 +21,14 @@ H = 1.0e4  # Height position of the model top
 mesh = ExtrudedMesh(m, layers=nlayers, layer_height=H/nlayers)
 
 points_x = np.linspace(0., L, 100)
-points_z = 0.
-points = [[px, points_z] for px in points_x]
+points_z = [0.]
+points = np.array([p for p in itertools.product(points_x, points_z)])
 
 fieldlist = ['u', 'rho', 'theta']
 timestepping = TimesteppingParameters(dt=dt)
-output = OutputParameters(dirname='sk_nonlinear', dumpfreq=10, dumplist=['u'], perturbation_fields=['theta', 'rho'], point_data={'theta_perturbation': points}, pointwise_everydump=True)
+output = OutputParameters(dirname='sk_nonlinear', dumpfreq=1, dumplist=['u'],
+                          perturbation_fields=['theta', 'rho'],
+                          point_data=[('theta_perturbation', points)])
 parameters = CompressibleParameters()
 diagnostics = Diagnostics(*fieldlist)
 diagnostic_fields = [CourantNumber()]
@@ -77,8 +80,11 @@ theta0.interpolate(theta_b + theta_pert)
 rho0.assign(rho_b)
 u0.project(as_vector([20.0, 0.0]))
 
-state.initialise({'u': u0, 'rho': rho0, 'theta': theta0})
-state.set_reference_profiles({'rho': rho_b, 'theta': theta_b})
+state.initialise([('u', u0),
+                  ('rho', rho0),
+                  ('theta', theta0)])
+state.set_reference_profiles([('rho', rho_b),
+                              ('theta', theta_b)])
 
 # Set up advection schemes
 ueqn = EulerPoincare(state, Vu)
@@ -88,10 +94,10 @@ if supg:
     thetaeqn = SUPGAdvection(state, Vt, supg_params={"dg_direction": "horizontal"}, equation_form="advective")
 else:
     thetaeqn = EmbeddedDGAdvection(state, Vt, equation_form="advective")
-advection_dict = {}
-advection_dict["u"] = ThetaMethod(state, u0, ueqn)
-advection_dict["rho"] = SSPRK3(state, rho0, rhoeqn)
-advection_dict["theta"] = SSPRK3(state, theta0, thetaeqn)
+advected_fields = []
+advected_fields.append(("u", ThetaMethod(state, u0, ueqn)))
+advected_fields.append(("rho", SSPRK3(state, rho0, rhoeqn)))
+advected_fields.append(("theta", SSPRK3(state, theta0, thetaeqn)))
 
 # Set up linear solver
 schur_params = {'pc_type': 'fieldsplit',
@@ -124,7 +130,7 @@ linear_solver = CompressibleSolver(state, params=schur_params)
 compressible_forcing = CompressibleForcing(state)
 
 # build time stepper
-stepper = Timestepper(state, advection_dict, linear_solver,
+stepper = Timestepper(state, advected_fields, linear_solver,
                       compressible_forcing)
 
 stepper.run(t=0, tmax=tmax)
