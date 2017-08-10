@@ -10,7 +10,7 @@ if '--running-tests' in sys.argv:
     tmax = 3000.
 else:
     # setup resolution and timestepping parameters for convergence test
-    ref_dt = {3: 3000., 4: 1500., 5: 750., 6: 375.}
+    ref_dt = {3: 12000., 4: 6000., 5: 3000., 6: 1500.}
     tmax = 5*day
 
 # setup shallow water parameters
@@ -33,6 +33,7 @@ for ref_level, dt in ref_dt.items():
 
     timestepping = TimesteppingParameters(dt=dt)
     output = OutputParameters(dirname=dirname, dumplist_latlon=['D', 'D_error'], steady_state_error_fields=['D', 'u'])
+    diagnostic_fields = [CourantNumber()]
 
     state = State(mesh, horizontal_degree=1,
                   family="BDM",
@@ -40,6 +41,7 @@ for ref_level, dt in ref_dt.items():
                   output=output,
                   parameters=parameters,
                   diagnostics=diagnostics,
+                  diagnostic_fields=diagnostic_fields,
                   fieldlist=fieldlist)
 
     # interpolate initial conditions
@@ -62,11 +64,11 @@ for ref_level, dt in ref_dt.items():
     state.initialise([('u', u0),
                       ('D', D0)])
 
-    ueqn = EulerPoincare(state, u0.function_space())
+    ueqn = EmbeddedDGAdvection(state, u0.function_space())
     Deqn = AdvectionEquation(state, D0.function_space(), equation_form="continuity")
     advected_fields = []
-    advected_fields.append(("u", ThetaMethod(state, u0, ueqn)))
-    advected_fields.append(("D", SSPRK3(state, D0, Deqn)))
+    advected_fields.append(("u", SSPRK3(state, u0, ueqn, subcycles=4)))
+    advected_fields.append(("D", SSPRK3(state, D0, Deqn, subcycles=4)))
 
     linear_solver = ShallowWaterSolver(state)
 
