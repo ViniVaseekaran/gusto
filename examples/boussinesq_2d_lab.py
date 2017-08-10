@@ -12,18 +12,8 @@ dt = 0.01
 
 if '--running-tests' in sys.argv:
     tmax = dt
-    # avoid using mumps on Travis
-    linear_solver_params = {'ksp_type':'gmres',
-                            'pc_type':'fieldsplit',
-                            'pc_fieldsplit_type':'additive',
-                            'fieldsplit_0_pc_type':'lu',
-                            'fieldsplit_1_pc_type':'lu',
-                            'fieldsplit_0_ksp_type':'preonly',
-                            'fieldsplit_1_ksp_type':'preonly'}
 else:
     tmax = 3600*48.
-    # use default linear solver parameters (i.e. mumps)
-    linear_solver_params = None
 
 ##############################################################################
 # set up mesh
@@ -58,7 +48,7 @@ fieldlist = ['u', 'p', 'b']
 # class containing timestepping parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
-timestepping = TimesteppingParameters(dt=dt)
+timestepping = TimesteppingParameters(dt=4*dt)
 
 # class containing output parameters
 # all values not explicitly set here use the default values provided
@@ -187,13 +177,14 @@ else:
     beqn = EmbeddedDGAdvection(state, Vb,
                                equation_form="advective")
 advected_fields = []
-advected_fields.append(("u", ThetaMethod(state, u0, ueqn)))
-advected_fields.append(("b", SSPRK3(state, b0, beqn)))
+#advected_fields.append(("u", ThetaMethod(state, u0, ueqn)))
+advected_fields.append(("u", SSPRK3(state, u0, ueqn, subcycles=4)))
+advected_fields.append(("b", SSPRK3(state, b0, beqn, subcycles=4)))
 
 ##############################################################################
 # Set up linear solver for the timestepping scheme
 ##############################################################################
-linear_solver = IncompressibleSolver(state, L, params=linear_solver_params)
+linear_solver = IncompressibleSolver(state, L)
 
 ##############################################################################
 # Set up forcing
