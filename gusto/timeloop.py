@@ -212,7 +212,7 @@ class AdvectionTimestepper(BaseTimestepper):
                     physics.apply()
 
             with timed_stage("Diffusion"):
-                for name, diffusion in self.diffusion_dict.iteritems():
+                for name, diffusion in self.diffused_fields:
                     field = getattr(state.fields, name)
                     diffusion.apply(field, field)
 
