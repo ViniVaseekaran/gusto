@@ -17,7 +17,7 @@ class BaseTimestepper(object, metaclass=ABCMeta):
         :class:`~.Advection` to use.
     """
 
-    def __init__(self, state, advected_fields, diffused_fields=None,
+    def __init__(self, state, advected_fields=None, diffused_fields=None,
                  physics_list=None):
 
         self.state = state
