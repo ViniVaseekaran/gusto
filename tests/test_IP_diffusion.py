@@ -1,8 +1,6 @@
-import itertools
-from os import path
 from gusto import *
 from firedrake import PeriodicIntervalMesh, ExtrudedMesh, SpatialCoordinate,\
-    VectorFunctionSpace, File, Constant, Function, exp, as_vector
+    VectorFunctionSpace, Constant, exp, as_vector
 import pytest
 
 
