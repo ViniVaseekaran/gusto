@@ -4,7 +4,7 @@ from gusto.linear_solvers import IncompressibleSolver
 from firedrake import DirichletBC
 
 
-__all__ = ["Timestepper", "AdvectionTimestepper"]
+__all__ = ["Timestepper", "AdvectionDiffusionTimestepper"]
 
 
 class BaseTimestepper(object, metaclass=ABCMeta):
@@ -48,9 +48,49 @@ class BaseTimestepper(object, metaclass=ABCMeta):
             for bc in bcs:
                 bc.apply(unp1)
 
+    def setup_timeloop(self, t, pickup):
+        state = self.state
+        state.xb.assign(state.xn)
+        state.setup_diagnostics()
+
+        with timed_stage("Dump output"):
+            state.setup_dump(pickup)
+            t = state.dump(t, pickup)
+        return t
+
     @abstractmethod
-    def run(self):
+    def timestep(self, dt):
         pass
+
+    def run(self, t, tmax, pickup=False):
+        self.setup_timeloop(t, pickup)
+        state = self.state
+        dt = state.timestepping.dt
+        while t < tmax - 0.5*dt:
+            if state.output.Verbose:
+                print("STEP", t, dt)
+
+            t += dt
+            state.t.assign(t)
+            state.xnp1.assign(state.xn)
+
+            self.timestep(dt)
+            state.xb.assign(state.xn)
+            state.xn.assign(state.xnp1)
+
+            with timed_stage("Diffusion"):
+                for name, diffusion in self.diffused_fields:
+                    field = getattr(state.fields, name)
+                    diffusion.apply(field, field)
+
+            with timed_stage("Physics"):
+                for physics in self.physics_list:
+                    physics.apply()
+
+            with timed_stage("Dump output"):
+                state.dump(t, pickup=False)
+
+        print("TIMELOOP complete. t= " + str(t) + " tmax=" + str(tmax))
 
 
 class Timestepper(BaseTimestepper):
@@ -82,130 +122,80 @@ class Timestepper(BaseTimestepper):
         else:
             self.incompressible = False
 
-        state.xb.assign(state.xn)
-
-    def run(self, t, tmax, pickup=False):
+    def setup_timeloop(self, t, pickup):
+        t = super().setup_timeloop(t, pickup)
+        print(t)
         state = self.state
-        state.setup_diagnostics()
-
-        xstar_fields = {name: func for (name, func) in
-                        zip(state.fieldlist, state.xstar.split())}
-        xp_fields = {name: func for (name, func) in
-                     zip(state.fieldlist, state.xp.split())}
+        self.xstar_fields = {name: func for (name, func) in
+                             zip(state.fieldlist, state.xstar.split())}
+        self.xp_fields = {name: func for (name, func) in
+                          zip(state.fieldlist, state.xp.split())}
         # list of fields that are passively advected (and possibly diffused)
-        passive_advection = [(name, scheme) for name, scheme in self.advected_fields if name not in state.fieldlist]
+        self.passive_advection = [(name, scheme) for name, scheme in self.advected_fields if name not in state.fieldlist]
         # list of fields that are advected as part of the nonlinear iteration
-        active_advection = [(name, scheme) for name, scheme in self.advected_fields if name in state.fieldlist]
+        self.active_advection = [(name, scheme) for name, scheme in self.advected_fields if name in state.fieldlist]
 
-        dt = state.timestepping.dt
+        return t
+
+    def timestep(self, dt):
+
+        state = self.state
         alpha = state.timestepping.alpha
         if state.mu is not None:
             mu_alpha = [0., dt]
         else:
             mu_alpha = [None, None]
 
-        with timed_stage("Dump output"):
-            state.setup_dump(pickup)
-            t = state.dump(t, pickup)
+        with timed_stage("Apply forcing terms"):
+            self.forcing.apply((1-alpha)*dt, state.xn, state.xn,
+                               state.xstar, mu_alpha=mu_alpha[0])
 
-        while t < tmax - 0.5*dt:
-            if state.output.Verbose:
-                print("STEP", t, dt)
+        state.xnp1.assign(state.xn)
 
-            t += dt
-            state.t.assign(t)
+        for k in range(state.timestepping.maxk):
 
-            with timed_stage("Apply forcing terms"):
-                self.forcing.apply((1-alpha)*dt, state.xn, state.xn,
-                                   state.xstar, mu_alpha=mu_alpha[0])
+            with timed_stage("Advection"):
+                for name, advection in self.active_advection:
+                    # first computes ubar from state.xn and state.xnp1
+                    advection.update_ubar(state.xn, state.xnp1, state.timestepping.alpha)
+                    # advects a field from xstar and puts result in xp
+                    advection.apply(self.xstar_fields[name], self.xp_fields[name])
 
-            state.xnp1.assign(state.xn)
+            state.xrhs.assign(0.)  # xrhs is the residual which goes in the linear solve
 
-            for k in range(state.timestepping.maxk):
+            for i in range(state.timestepping.maxi):
 
-                with timed_stage("Advection"):
-                    for name, advection in active_advection:
-                        # first computes ubar from state.xn and state.xnp1
-                        advection.update_ubar(state.xn, state.xnp1, state.timestepping.alpha)
-                        # advects a field from xstar and puts result in xp
-                        advection.apply(xstar_fields[name], xp_fields[name])
+                with timed_stage("Apply forcing terms"):
+                    self.forcing.apply(alpha*dt, state.xp, state.xnp1,
+                                       state.xrhs, mu_alpha=mu_alpha[1],
+                                       incompressible=self.incompressible)
 
-                state.xrhs.assign(0.)  # xrhs is the residual which goes in the linear solve
+                state.xrhs -= state.xnp1
 
-                for i in range(state.timestepping.maxi):
+                with timed_stage("Implicit solve"):
+                    self.linear_solver.solve()  # solves linear system and places result in state.dy
 
-                    with timed_stage("Apply forcing terms"):
-                        self.forcing.apply(alpha*dt, state.xp, state.xnp1,
-                                           state.xrhs, mu_alpha=mu_alpha[1],
-                                           incompressible=self.incompressible)
+                state.xnp1 += state.dy
 
-                    state.xrhs -= state.xnp1
+        self._apply_bcs()
 
-                    with timed_stage("Implicit solve"):
-                        self.linear_solver.solve()  # solves linear system and places result in state.dy
+        for name, advection in self.passive_advection:
+            field = getattr(state.fields, name)
+            # first computes ubar from state.xn and state.xnp1
+            advection.update_ubar(state.xn, state.xnp1, state.timestepping.alpha)
+            # advects a field from xn and puts result in xnp1
+            advection.apply(field, field)
 
-                    state.xnp1 += state.dy
 
-            self._apply_bcs()
+class AdvectionDiffusionTimestepper(BaseTimestepper):
 
-            for name, advection in passive_advection:
+    def timestep(self, dt):
+
+        state = self.state
+        with timed_stage("Advection"):
+            for name, advection in self.advected_fields:
                 field = getattr(state.fields, name)
                 # first computes ubar from state.xn and state.xnp1
                 advection.update_ubar(state.xn, state.xnp1, state.timestepping.alpha)
-                # advects a field from xn and puts result in xnp1
+                # advects field
                 advection.apply(field, field)
-
-            state.xb.assign(state.xn)
-            state.xn.assign(state.xnp1)
-
-            with timed_stage("Diffusion"):
-                for name, diffusion in self.diffused_fields:
-                    field = getattr(state.fields, name)
-                    diffusion.apply(field, field)
-
-            with timed_stage("Physics"):
-                for physics in self.physics_list:
-                    physics.apply()
-
-            with timed_stage("Dump output"):
-                state.dump(t, pickup=False)
-
-        print("TIMELOOP complete. t= " + str(t) + " tmax=" + str(tmax))
-
-
-class AdvectionTimestepper(BaseTimestepper):
-
-    def run(self, t, tmax, x_end=None):
-        state = self.state
-        state.setup_diagnostics()
-
-        dt = state.timestepping.dt
-        state.xnp1.assign(state.xn)
-
-        with timed_stage("Dump output"):
-            state.setup_dump()
-            state.dump(t)
-
-        while t < tmax - 0.5*dt:
-            if state.output.Verbose:
-                print("STEP", t, dt)
-
-            t += dt
-
-            with timed_stage("Advection"):
-                for name, advection in self.advected_fields:
-                    field = getattr(state.fields, name)
-                    # first computes ubar from state.xn and state.xnp1
-                    advection.update_ubar(state.xn, state.xnp1, state.timestepping.alpha)
-                    # advects field
-                    advection.apply(field, field)
-
-            with timed_stage("Physics"):
-                for physics in self.physics_list:
-                    physics.apply()
-
-            with timed_stage("Dump output"):
-                state.dump(t)
-
-        if x_end is not None:
-            return {field: getattr(state.fields, field) for field in x_end}

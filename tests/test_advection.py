@@ -111,7 +111,7 @@ def setup_advection(dirname, geometry, time_discretisation, ibp, equation_form, 
         f_advection = ThetaMethod(state, f, fequation)
 
     advected_fields = [("f", f_advection)]
-    timestepper = AdvectionTimestepper(state, advected_fields)
+    timestepper = AdvectionDiffusionTimestepper(state, advected_fields)
 
     return timestepper, tmax, f_end
 
@@ -120,8 +120,8 @@ def run(dirname, geometry, time_discretisation, ibp, equation_form, vector, spat
 
     timestepper, tmax, f_end = setup_advection(dirname, geometry, time_discretisation, ibp, equation_form, vector, spatial_opts=spatial_opts)
 
-    f_dict = timestepper.run(0, tmax, x_end=["f"])
-    f = f_dict["f"]
+    timestepper.run(0, tmax)
+    f = timestepper.state.fields("f")
 
     f_err = Function(f.function_space()).assign(f_end - f)
     return f_err
