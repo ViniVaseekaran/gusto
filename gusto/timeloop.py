@@ -4,7 +4,7 @@ from gusto.linear_solvers import IncompressibleSolver
 from firedrake import DirichletBC
 
 
-__all__ = ["Timestepper", "AdvectionDiffusionTimestepper"]
+__all__ = ["Timestepper", "AdvectionDiffusion", "ImplicitMidpoint"]
 
 
 class BaseTimestepper(object, metaclass=ABCMeta):
@@ -93,7 +93,55 @@ class BaseTimestepper(object, metaclass=ABCMeta):
         print("TIMELOOP complete. t= " + str(t) + " tmax=" + str(tmax))
 
 
-class Timestepper(BaseTimestepper):
+class NonlinearTimestepper(BaseTimestepper):
+    def __init__(self, state, advected_fields, linear_solver, forcing,
+                 diffused_fields=None, physics_list=None):
+
+        super().__init__(state, advected_fields, diffused_fields, physics_list)
+        self.linear_solver = linear_solver
+        self.forcing = forcing
+
+        # list of fields that are passively advected (and possibly diffused)
+        self.passive_advection = [(name, scheme) for name, scheme in self.advected_fields if name not in state.fieldlist]
+        # list of fields that are advected as part of the nonlinear iteration
+        self.active_advection = [(name, scheme) for name, scheme in self.advected_fields if name in state.fieldlist]
+
+        if isinstance(self.linear_solver, IncompressibleSolver):
+            self.incompressible = True
+        else:
+            self.incompressible = False
+
+
+class ImplicitMidpoint(NonlinearTimestepper):
+    def setup_timeloop(self, t, pickup):
+        t = super().setup_timeloop(t, pickup)
+        state = self.state
+        self.xn_fields = {name: func for (name, func) in
+                          zip(state.fieldlist, state.xn.split())}
+        self.xrhs_fields = {name: func for (name, func) in
+                            zip(state.fieldlist, state.xrhs.split())}
+
+    def timestep(self, dt):
+        state = self.state
+
+        state.xrhs.assign(0.)  # xrhs is the residual which goes in the linear solve
+        for k in range(state.timestepping.maxk):
+
+            for name, advection in self.active_advection:
+                # first computes ubar from state.xn and state.xnp1
+                advection.update_ubar(state.xn, state.xnp1, state.timestepping.alpha)
+                # advects a field from xn and puts result in xp
+                advection.apply(self.xn_fields[name], self.xrhs_fields[name])
+
+            state.xrhs -= state.xnp1
+
+            with timed_stage("Implicit solve"):
+                self.linear_solver.solve()  # solves linear system and places result in state.dy
+
+            state.xnp1 += state.dy
+
+
+class Timestepper(NonlinearTimestepper):
     """
     Build a timestepper to implement an "auxiliary semi-Lagrangian" timestepping
     scheme for the dynamical core.
@@ -109,31 +157,13 @@ class Timestepper(BaseTimestepper):
     :arg forcing: a :class:`.Forcing` object
     """
 
-    def __init__(self, state, advected_fields, linear_solver, forcing,
-                 diffused_fields=None, physics_list=None):
-
-        super(Timestepper, self).__init__(state, advected_fields,
-                                          diffused_fields, physics_list)
-        self.linear_solver = linear_solver
-        self.forcing = forcing
-
-        if isinstance(self.linear_solver, IncompressibleSolver):
-            self.incompressible = True
-        else:
-            self.incompressible = False
-
     def setup_timeloop(self, t, pickup):
         t = super().setup_timeloop(t, pickup)
-        print(t)
         state = self.state
         self.xstar_fields = {name: func for (name, func) in
                              zip(state.fieldlist, state.xstar.split())}
         self.xp_fields = {name: func for (name, func) in
                           zip(state.fieldlist, state.xp.split())}
-        # list of fields that are passively advected (and possibly diffused)
-        self.passive_advection = [(name, scheme) for name, scheme in self.advected_fields if name not in state.fieldlist]
-        # list of fields that are advected as part of the nonlinear iteration
-        self.active_advection = [(name, scheme) for name, scheme in self.advected_fields if name in state.fieldlist]
 
         return t
 
@@ -149,8 +179,6 @@ class Timestepper(BaseTimestepper):
         with timed_stage("Apply forcing terms"):
             self.forcing.apply((1-alpha)*dt, state.xn, state.xn,
                                state.xstar, mu_alpha=mu_alpha[0])
-
-        state.xnp1.assign(state.xn)
 
         for k in range(state.timestepping.maxk):
 
@@ -187,7 +215,7 @@ class Timestepper(BaseTimestepper):
             advection.apply(field, field)
 
 
-class AdvectionDiffusionTimestepper(BaseTimestepper):
+class AdvectionDiffusion(BaseTimestepper):
 
     def timestep(self, dt):
 

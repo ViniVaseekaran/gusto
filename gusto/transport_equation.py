@@ -27,7 +27,7 @@ class TransportEquation(object, metaclass=ABCMeta):
                         linear solver.
     """
 
-    def __init__(self, state, V, ibp="once", solver_params=None):
+    def __init__(self, state, V, *, ibp="once", solver_params=None):
         self.state = state
         self.V = V
         self.ibp = ibp
@@ -97,8 +97,8 @@ class LinearAdvection(TransportEquation):
                         linear solver.
     """
 
-    def __init__(self, state, V, qbar, ibp=None, equation_form="advective", solver_params=None):
-        super(LinearAdvection, self).__init__(state, V, ibp, solver_params)
+    def __init__(self, state, V, qbar, space=None, ibp=None, equation_form="advective", solver_params=None):
+        super().__init__(state, V, ibp=ibp, solver_params=solver_params)
         if equation_form == "advective" or equation_form == "continuity":
             self.continuity = (equation_form == "continuity")
         else:
@@ -143,8 +143,8 @@ class AdvectionEquation(TransportEquation):
     :arg solver_params: (optional) dictionary of solver parameters to pass to the
                         linear solver.
     """
-    def __init__(self, state, V, ibp="once", equation_form="advective", solver_params=None):
-        super(AdvectionEquation, self).__init__(state, V, ibp, solver_params)
+    def __init__(self, state, V, space=None, ibp="once", equation_form="advective", solver_params=None):
+        super().__init__(state, V, ibp=ibp, solver_params=solver_params)
         if equation_form == "advective" or equation_form == "continuity":
             self.continuity = (equation_form == "continuity")
         else:
@@ -199,11 +199,11 @@ class EmbeddedDGAdvection(AdvectionEquation):
         if Vdg is None:
             # Create broken space, functions and projector
             V_elt = BrokenElement(V.ufl_element())
-            self.space = FunctionSpace(state.mesh, V_elt)
+            V = FunctionSpace(state.mesh, V_elt)
         else:
-            self.space = Vdg
+            V = Vdg
 
-        super(EmbeddedDGAdvection, self).__init__(state, self.space, ibp, equation_form, solver_params)
+        super().__init__(state, V, ibp=ibp, equation_form=equation_form, solver_params=solver_params)
 
 
 class SUPGAdvection(AdvectionEquation):
@@ -245,7 +245,7 @@ class SUPGAdvection(AdvectionEquation):
                              'pc_type': 'bjacobi',
                              'sub_pc_type': 'ilu'}
 
-        super(SUPGAdvection, self).__init__(state, V, ibp, equation_form, solver_params)
+        super().__init__(state, V, ibp=ibp, equation_form=equation_form, solver_params=solver_params)
 
         # if using SUPG we either integrate by parts twice, or not at all
         if ibp == "once":
@@ -312,13 +312,13 @@ class VectorInvariant(TransportEquation):
                         linear solver.
     """
     def __init__(self, state, V, ibp="once", solver_params=None):
-        super(VectorInvariant, self).__init__(state, V, ibp, solver_params)
+        super().__init__(state, V, ibp=ibp, solver_params=solver_params)
 
         self.Upwind = 0.5*(sign(dot(self.ubar, self.n))+1)
 
         if self.state.mesh.topological_dimension() == 2:
             self.perp = state.perp
-            if V.extruded:
+            if self.V.extruded:
                 self.perp_u_upwind = lambda q: self.Upwind('+')*state.perp(q('+')) + self.Upwind('-')*state.perp(q('-'))
             else:
                 outward_normals = CellNormal(state.mesh)
