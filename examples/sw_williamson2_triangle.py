@@ -62,8 +62,8 @@ for ref_level, dt in ref_dt.items():
     state.initialise([('u', u0),
                       ('D', D0)])
 
-    ueqn = EulerPoincare(state, u0)
-    Deqn = AdvectionEquation(state, D0, equation_form="continuity")
+    ueqn = EulerPoincare(state, u0.function_space())
+    Deqn = AdvectionEquation(state, D0.function_space(), equation_form="continuity")
     advected_fields = []
     advected_fields.append(("u", ThetaMethod(state, u0, ueqn)))
     advected_fields.append(("D", SSPRK3(state, D0, Deqn)))
