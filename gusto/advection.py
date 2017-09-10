@@ -65,9 +65,9 @@ class Advection(object, metaclass=ABCMeta):
         # the output function.
         if isinstance(equation, EmbeddedDGAdvection):
             self.embedded_dg = True
-            fs = equation.space
-            self.xdg_in = Function(equation.space)
-            self.xdg_out = Function(equation.space)
+            fs = equation.V
+            self.xdg_in = Function(fs)
+            self.xdg_out = Function(fs)
             self.x_projected = Function(field.function_space())
             parameters = {'ksp_type': 'cg',
                           'pc_type': 'bjacobi',
