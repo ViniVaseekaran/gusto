@@ -6,8 +6,8 @@ import sympy as sp
 from sympy.stats import Normal
 import sys
 
-#dt = 1./20
-dt = 0.01
+dt = 1./20
+#dt = 0.01
 #dt = 0.005
 
 if '--running-tests' in sys.argv:
@@ -29,15 +29,15 @@ else:
 # set up mesh
 ##############################################################################
 # Construct 1d periodic base mesh for idealised lab experiment of Park et al. (1994)
-#columns = 20  # number of columns
-columns = 40
+columns = 20  # number of columns
+#columns = 40
 #columns = 80
 L = 0.2
 m = PeriodicIntervalMesh(columns, L)
 
 # build 2D mesh by extruding the base mesh
-#nlayers = 45  # horizontal layers
-nlayers = 90
+nlayers = 45  # horizontal layers
+#nlayers = 90
 #nlayers = 180
 H = 0.45  # Height position of the model top
 mesh = ExtrudedMesh(m, layers=nlayers, layer_height=H/nlayers)
@@ -220,14 +220,14 @@ forcing = IncompressibleForcing(state, extra_terms=f_u)
 # mu is a numerical parameter
 # kappa is the diffusion constant for each variable
 # Note that molecular diffusion coefficients were taken from Lautrup, 2005:
-#kappa_u = 1.*10**(-6.)/10
-#kappa_b = 1.4*10**(-7.)/10
+kappa_u = 1.*10**(-6.)/10
+kappa_b = 1.4*10**(-7.)/10
 
 #kappa_u = 1.*10**(-6.)/5
 #kappa_b = 1.4*10**(-7.)/5
 
-kappa_u = 1.*10**(-6.)/2
-kappa_b = 1.4*10**(-7.)/2
+#kappa_u = 1.*10**(-6.)/2
+#kappa_b = 1.4*10**(-7.)/2
 
 #kappa_u = 1.*10**(-6.)
 #kappa_b = 1.4*10**(-7.)
