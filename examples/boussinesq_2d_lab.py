@@ -14,7 +14,8 @@ if '--running-tests' in sys.argv:
     tmax = dt
 else:
     tmax = 3600*48.
-
+    #tmax = 1
+ 
 ##############################################################################
 # set up mesh
 ##############################################################################
@@ -48,8 +49,9 @@ fieldlist = ['u', 'p', 'b']
 # class containing timestepping parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
-#timestepping = TimesteppingParameters(dt=4*dt)
 timestepping = TimesteppingParameters(dt=dt)
+#timestepping = TimesteppingParameters(dt=4*dt)
+#timestepping = TimesteppingParameters(dt=3*dt)
 
 # class containing output parameters
 # all values not explicitly set here use the default values provided
