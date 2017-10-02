@@ -260,8 +260,8 @@ diffused_fields.append(("b", InteriorPenalty(state, Vb, kappa=kappa_b,
 ##############################################################################
 # build time stepper
 ##############################################################################
-#stepper = Timestepper(state, advection_dict, linear_solver, forcing)
-stepper = Timestepper(state, advected_fields, linear_solver, forcing, diffused_fields)
+stepper = Timestepper(state, advected_fields, linear_solver, forcing)
+#stepper = Timestepper(state, advected_fields, linear_solver, forcing, diffused_fields)
 
 ##############################################################################
 # Run!
