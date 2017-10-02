@@ -49,9 +49,9 @@ fieldlist = ['u', 'p', 'b']
 # class containing timestepping parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
-timestepping = TimesteppingParameters(dt=dt)
+#timestepping = TimesteppingParameters(dt=dt)
 #timestepping = TimesteppingParameters(dt=4*dt)
-#timestepping = TimesteppingParameters(dt=3*dt)
+timestepping = TimesteppingParameters(dt=3*dt)
 
 # class containing output parameters
 # all values not explicitly set here use the default values provided
@@ -59,7 +59,7 @@ timestepping = TimesteppingParameters(dt=dt)
 dumpfreq = 20*10
 #dumpfreq = 200
 #dumpfreq = 400
-output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'])
+output = OutputParameters(dirname='tmp_subcycling_3dt', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'])
 #points = [[0.1,0.22]]
 #output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'], 
 #            point_data={'b': points}, pointwise_everydump=True)
@@ -180,12 +180,10 @@ else:
     beqn = EmbeddedDGAdvection(state, Vb,
                                equation_form="advective")
 advected_fields = []
-advected_fields.append(("u", ThetaMethod(state, u0, ueqn)))
-advected_fields.append(("b", SSPRK3(state, b0, beqn)))
-#advected_fields.append(("u", SSPRK3(state, u0, ueqn, subcycles=4)))
-#advected_fields.append(("b", SSPRK3(state, b0, beqn, subcycles=4)))
-
-
+#advected_fields.append(("u", ThetaMethod(state, u0, ueqn)))
+#advected_fields.append(("b", SSPRK3(state, b0, beqn)))
+advected_fields.append(("u", SSPRK3(state, u0, ueqn, subcycles=4)))
+advected_fields.append(("b", SSPRK3(state, b0, beqn, subcycles=4)))
 
 
 ##############################################################################
