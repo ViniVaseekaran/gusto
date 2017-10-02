@@ -59,7 +59,7 @@ timestepping = TimesteppingParameters(dt=3*dt)
 dumpfreq = 20*10
 #dumpfreq = 200
 #dumpfreq = 400
-output = OutputParameters(dirname='tmp_subcycling_3dt', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'])
+output = OutputParameters(dirname='tmp_notsc', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'])
 #points = [[0.1,0.22]]
 #output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'], 
 #            point_data={'b': points}, pointwise_everydump=True)
@@ -184,7 +184,6 @@ advected_fields = []
 #advected_fields.append(("b", SSPRK3(state, b0, beqn)))
 advected_fields.append(("u", SSPRK3(state, u0, ueqn, subcycles=4)))
 advected_fields.append(("b", SSPRK3(state, b0, beqn, subcycles=4)))
-
 
 ##############################################################################
 # Set up linear solver for the timestepping scheme
