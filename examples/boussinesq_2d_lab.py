@@ -53,7 +53,7 @@ fieldlist = ['u', 'p', 'b']
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
 tfact = 3
-#timestepping = TimesteppingParameters(dt=dt*tfact)
+timestepping = TimesteppingParameters(dt=dt*tfact)
 
 # class containing output parameters
 # all values not explicitly set here use the default values provided
@@ -61,7 +61,7 @@ tfact = 3
 
 dumpfreq = 5/(dt*tfact)
 output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
-perturbation_fields=['b'], dump_diagnostics=False )
+perturbation_fields=['b'], checkpoint=False)
 
 #points = [[0.1,0.22]]
 #output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'], 
