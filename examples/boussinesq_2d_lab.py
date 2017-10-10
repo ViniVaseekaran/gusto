@@ -6,9 +6,10 @@ import sympy as sp
 from sympy.stats import Normal
 import sys
 
-dt = 1./20
+#dt = 1./20
 #dt = 0.01
 #dt = 0.005
+dt = 0.015
 
 if '--running-tests' in sys.argv:
     tmax = dt
@@ -20,10 +21,12 @@ else:
 # set up mesh
 ##############################################################################
 # Construct 1d periodic base mesh for idealised lab experiment of Park et al. (1994)
-columns = 20  # number of columns
+columns = 10
+#columns = 20  # number of columns
 #columns = 40
 #columns = 80
-L = 0.2
+#L = 0.2
+L = 0.1
 m = PeriodicIntervalMesh(columns, L)
 
 # build 2D mesh by extruding the base mesh
@@ -49,16 +52,14 @@ fieldlist = ['u', 'p', 'b']
 # class containing timestepping parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
-#timestepping = TimesteppingParameters(dt=dt)
-#timestepping = TimesteppingParameters(dt=4*dt)
-timestepping = TimesteppingParameters(dt=3*dt)
+tfact = 3
+#timestepping = TimesteppingParameters(dt=dt*tfact)
 
 # class containing output parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
-dumpfreq = 20*10
-#dumpfreq = 200
-#dumpfreq = 400
+
+dumpfreq = 5/(dt*tfact)
 output = OutputParameters(dirname='tmp_notsc', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'])
 #points = [[0.1,0.22]]
 #output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'], 
@@ -254,8 +255,8 @@ diffused_fields.append(("b", InteriorPenalty(state, Vb, kappa=kappa_b,
 ##############################################################################
 # build time stepper
 ##############################################################################
-#stepper = Timestepper(state, advection_dict, linear_solver, forcing)
-stepper = Timestepper(state, advected_fields, linear_solver, forcing, diffused_fields)
+stepper = Timestepper(state, advected_fields, linear_solver, forcing)
+#stepper = Timestepper(state, advected_fields, linear_solver, forcing, diffused_fields)
 
 ##############################################################################
 # Run!
