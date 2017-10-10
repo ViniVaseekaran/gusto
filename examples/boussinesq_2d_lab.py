@@ -60,7 +60,9 @@ tfact = 3
 # and documented in configuration.py
 
 dumpfreq = 5/(dt*tfact)
-output = OutputParameters(dirname='tmp_notsc', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'])
+output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
+perturbation_fields=['b'], dump_diagnostics=False )
+
 #points = [[0.1,0.22]]
 #output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], perturbation_fields=['b'], 
 #            point_data={'b': points}, pointwise_everydump=True)
