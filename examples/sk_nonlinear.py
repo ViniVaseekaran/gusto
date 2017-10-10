@@ -27,8 +27,7 @@ points = np.array([p for p in itertools.product(points_x, points_z)])
 fieldlist = ['u', 'rho', 'theta']
 timestepping = TimesteppingParameters(dt=dt)
 output = OutputParameters(dirname='sk_nonlinear', dumpfreq=1, dumplist=['u'],
-                          perturbation_fields=['theta', 'rho'],
-                          point_data=[('theta_perturbation', points)])
+                          perturbation_fields=['theta', 'rho'], point_data=[('theta_perturbation', points)])
 parameters = CompressibleParameters()
 diagnostics = Diagnostics(*fieldlist)
 diagnostic_fields = [CourantNumber()]
