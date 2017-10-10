@@ -60,10 +60,17 @@ timestepping = TimesteppingParameters(dt=dt*tfact)
 # and documented in configuration.py
 
 dumpfreq = 5/(dt*tfact)
-#points = [[0.1,0.22]]
-points = [[0.05,0.22]]
+
+points = np.array([[0.05,0.22]])
+#points = np.array([[0.04,0.21]])
+#points_x = [0.05]
+#points_z = [0.22]
+#points = np.array([p for p in itertools.product(points_x, points_z)])
+
+#output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
+#perturbation_fields=['b'], point_data=[('b', points)], checkpoint=False)
 output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
-perturbation_fields=['b'], point_data=[('b', points)], checkpoint=False)
+perturbation_fields=['b'], checkpoint=False)
 
 
 # class containing physical parameters
