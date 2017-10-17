@@ -52,12 +52,8 @@ fieldlist = ['u', 'p', 'b']
 # class containing timestepping parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
-<<<<<<< Updated upstream
 subcycles = 4
 tfact = 4
-=======
-tfact = 3
->>>>>>> Stashed changes
 timestepping = TimesteppingParameters(dt=dt*tfact)
 
 # class containing output parameters
@@ -75,11 +71,7 @@ points = np.array([[0.04,0.21]])
 #output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
 #perturbation_fields=['b'], point_data=[('b', points)], checkpoint=False)
 output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
-<<<<<<< Updated upstream
 perturbation_fields=['b'], checkpoint=False)
-=======
-perturbation_fields=['b'])
->>>>>>> Stashed changes
 
 
 # class containing physical parameters
