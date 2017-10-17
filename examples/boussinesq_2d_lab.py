@@ -9,7 +9,7 @@ import sys
 #dt = 1./20
 #dt = 0.01
 #dt = 0.005
-dt = 0.015
+dt = 0.0075
 
 if '--running-tests' in sys.argv:
     tmax = dt
@@ -21,7 +21,7 @@ else:
 # set up mesh
 ##############################################################################
 # Construct 1d periodic base mesh for idealised lab experiment of Park et al. (1994)
-columns = 10
+columns = 20
 #columns = 20  # number of columns
 #columns = 40
 #columns = 80
@@ -33,7 +33,7 @@ m = PeriodicIntervalMesh(columns, L)
 nlayers = 45  # horizontal layers
 #nlayers = 90
 #nlayers = 180
-H = 0.45  # Height position of the model top
+H = 0.45/2  # Height position of the model top
 mesh = ExtrudedMesh(m, layers=nlayers, layer_height=H/nlayers)
 
 ##############################################################################
@@ -52,17 +52,18 @@ fieldlist = ['u', 'p', 'b']
 # class containing timestepping parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
-tfact = 3
+subcycles = 4
+tfact = 4
 timestepping = TimesteppingParameters(dt=dt*tfact)
 
 # class containing output parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
 
-dumpfreq = 5/(dt*tfact)
+dumpfreq = int( 5/(dt*tfact) )
 
-points = np.array([[0.05,0.22]])
-#points = np.array([[0.04,0.21]])
+#points = np.array([[0.05,0.22]])
+points = np.array([[0.04,0.21]])
 #points_x = [0.05]
 #points_z = [0.22]
 #points = np.array([p for p in itertools.product(points_x, points_z)])
@@ -78,7 +79,7 @@ perturbation_fields=['b'], checkpoint=False)
 # and documented in configuration.py
 rho0 = 1090.95075
 #N=1.957 (run 18), N=1.1576 (run 16), N=0.5916 (run 14), N=0.2
-parameters = CompressibleParameters(N=1.957, p_0=106141.3045)
+parameters = CompressibleParameters(N=0.5916, p_0=106141.3045)
 
 # Physical parameters adjusted for idealised lab experiment of Park et al. (1994):
 # The value of the background buoyancy frequency N is that for their run number 18, which has clear stair-step features.
@@ -128,6 +129,7 @@ b_b = Function(Vb).interpolate(bref)
 # Define bouyancy perturbation to represent background soup of internal waves in idealised lab scenario of Park et al.
 g = parameters.g
 
+
 rho0_13 = 1006.47
 drho0_dz13 = -122.09
 dgamma13 = 100./3
@@ -138,13 +140,17 @@ bprime13 = g/rho0_13 * rhoprime13
 #No clear number for buoyancy perturbation for run 18 -
 #Try to scale perturbations using background stratification
 #From Park et al run 18:
-rho0_18 = 1090.95075
-drho0_dz18 = -425.9
-dgamma18 = dgamma13 * drho0_dz18/drho0_dz13
+#rho0 = 1090.95075
+#drho0_dz = -425.9
 
-bprime_ratio = rho0_18/rho0_13 * dgamma13/dgamma18
-bprime18 = bprime13/bprime_ratio
-A_z1 = bprime18
+#From Park et al run 14:
+rho0 = 896.2416
+drho0_dz = -31.976
+
+dgamma = dgamma13 * drho0_dz/drho0_dz13
+bprime_ratio = rho0/rho0_13 * dgamma13/dgamma
+bprime = bprime13/bprime_ratio
+A_z1 = bprime
 
 
 #b_pert = A_x1/2.*sin(k1*x[0]) + A_z1/2.*sin(m1*x[1])
@@ -191,8 +197,8 @@ else:
 advected_fields = []
 #advected_fields.append(("u", ThetaMethod(state, u0, ueqn)))
 #advected_fields.append(("b", SSPRK3(state, b0, beqn)))
-advected_fields.append(("u", SSPRK3(state, u0, ueqn, subcycles=4)))
-advected_fields.append(("b", SSPRK3(state, b0, beqn, subcycles=4)))
+advected_fields.append(("u", SSPRK3(state, u0, ueqn, subcycles=subcycles)))
+advected_fields.append(("b", SSPRK3(state, b0, beqn, subcycles=subcycles)))
 
 ##############################################################################
 # Set up linear solver for the timestepping scheme
