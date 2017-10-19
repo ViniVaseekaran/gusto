@@ -53,7 +53,7 @@ fieldlist = ['u', 'p', 'b']
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
 subcycles = 4
-timestepping = TimesteppingParameters(dt=dt*subcyclesÂ)
+timestepping = TimesteppingParameters(dt=dt*subcycles)
 
 # class containing output parameters
 # all values not explicitly set here use the default values provided
