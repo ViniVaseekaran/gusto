@@ -53,14 +53,13 @@ fieldlist = ['u', 'p', 'b']
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
 subcycles = 4
-tfact = 4
-timestepping = TimesteppingParameters(dt=dt*tfact)
+timestepping = TimesteppingParameters(dt=dt*subcyclesÂ)
 
 # class containing output parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
 
-dumpfreq = int( 5/(dt*tfact) )
+dumpfreq = int( 5/(dt*subcycles) )
 
 #points = np.array([[0.05,0.22]])
 points = np.array([[0.04,0.21]])
@@ -77,7 +76,7 @@ perturbation_fields=['b'], checkpoint=False)
 # class containing physical parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
-rho0 = 1090.95075
+
 #N=1.957 (run 18), N=1.1576 (run 16), N=0.5916 (run 14), N=0.2
 parameters = CompressibleParameters(N=0.5916, p_0=106141.3045)
 
@@ -213,7 +212,7 @@ lmda_z1 = 2.0/100                               # Vertical wavelength of interna
 k1 = 2*pi/lmda_x1                               # Horizontal wavenumber of internal waves
 m1 = 2*pi/lmda_z1                               # Vertical wavenumber of internal waves
 
-omega = 0.2*2*pi
+omega = L*2*pi
 f_ux = 0.
 #f_uz = 0.
 f_uz = A_z1/2*sin(x[0]*k1 + x[1]*m1 - omega*state.t)
