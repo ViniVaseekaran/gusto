@@ -9,7 +9,8 @@ import sys
 #dt = 1./20
 #dt = 0.01
 #dt = 0.005
-dt = 0.0075
+#dt = 0.0075
+dt = 0.003
 
 if '--running-tests' in sys.argv:
     tmax = dt
@@ -21,19 +22,21 @@ else:
 # set up mesh
 ##############################################################################
 # Construct 1d periodic base mesh for idealised lab experiment of Park et al. (1994)
-columns = 20
 #columns = 20  # number of columns
 #columns = 40
 #columns = 80
-#L = 0.2
-L = 0.1
+columns = 100
+L = 0.2
+#L = 0.1
 m = PeriodicIntervalMesh(columns, L)
 
 # build 2D mesh by extruding the base mesh
-nlayers = 45  # horizontal layers
+#nlayers = 45  # horizontal layers
 #nlayers = 90
 #nlayers = 180
-H = 0.45/2  # Height position of the model top
+nlayers = 225
+H = 0.45  # Height position of the model top
+#H = 0.45/2
 mesh = ExtrudedMesh(m, layers=nlayers, layer_height=H/nlayers)
 
 ##############################################################################
@@ -78,7 +81,7 @@ perturbation_fields=['b'], checkpoint=False)
 # and documented in configuration.py
 
 #N=1.957 (run 18), N=1.1576 (run 16), N=0.5916 (run 14), N=0.2
-parameters = CompressibleParameters(N=0.5916, p_0=106141.3045)
+parameters = CompressibleParameters(N=1.957)
 
 # Physical parameters adjusted for idealised lab experiment of Park et al. (1994):
 # The value of the background buoyancy frequency N is that for their run number 18, which has clear stair-step features.
@@ -128,7 +131,6 @@ b_b = Function(Vb).interpolate(bref)
 # Define bouyancy perturbation to represent background soup of internal waves in idealised lab scenario of Park et al.
 g = parameters.g
 
-
 rho0_13 = 1006.47
 drho0_dz13 = -122.09
 dgamma13 = 100./3
@@ -139,12 +141,12 @@ bprime13 = g/rho0_13 * rhoprime13
 #No clear number for buoyancy perturbation for run 18 -
 #Try to scale perturbations using background stratification
 #From Park et al run 18:
-#rho0 = 1090.95075
-#drho0_dz = -425.9
+rho0 = 1090.95075
+drho0_dz = -425.9
 
 #From Park et al run 14:
-rho0 = 896.2416
-drho0_dz = -31.976
+#rho0 = 896.2416
+#drho0_dz = -31.976
 
 dgamma = dgamma13 * drho0_dz/drho0_dz13
 bprime_ratio = rho0/rho0_13 * dgamma13/dgamma
@@ -213,7 +215,7 @@ k1 = 2*pi/lmda_x1                               # Horizontal wavenumber of inter
 m1 = 2*pi/lmda_z1                               # Vertical wavenumber of internal waves
 
 omega = L*2*pi
-f_ux = 0.
+f_ux = -m1/k1*A_z1/2*sin(x[0]*k1 + x[1]*m1 - omega*state.t)
 #f_uz = 0.
 f_uz = A_z1/2*sin(x[0]*k1 + x[1]*m1 - omega*state.t)
 f_u = as_vector([f_ux,f_uz])
