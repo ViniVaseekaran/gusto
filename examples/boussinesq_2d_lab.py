@@ -248,7 +248,6 @@ forcing = IncompressibleForcing(state, extra_terms=f_u)
 #kappa_b = 1.4*10**(-7.)
 
 kappa_u = 1.*10**(-6.)
-kappa_b = 0.0
 
 #kappa_u = 1.*10**(-6.)*10
 #kappa_b = 1.4*10**(-7.)*10
@@ -270,15 +269,15 @@ bcs_b = [DirichletBC(Vb, -N**2*H, "bottom"), DirichletBC(Vb, 0.0, "top")]
 diffused_fields = []
 diffused_fields.append(("u", InteriorPenalty(state, Vu, kappa=kappa_u,
                                            mu=Constant(10./delta), bcs=bcs_u)))
-diffused_fields.append(("b", InteriorPenalty(state, Vb, kappa=kappa_b,
-                                             mu=Constant(10./delta), bcs=bcs_b)))
+#diffused_fields.append(("b", InteriorPenalty(state, Vb, kappa=kappa_b,
+#                                             mu=Constant(10./delta), bcs=bcs_b)))
 
 
 ##############################################################################
 # build time stepper
 ##############################################################################
-#stepper = Timestepper(state, advected_fields, linear_solver, forcing)
-stepper = Timestepper(state, advected_fields, linear_solver, forcing, diffused_fields)
+#stepper = CrankNicolson(state, advected_fields, linear_solver, forcing)
+stepper = CrankNicolson(state, advected_fields, linear_solver, forcing, diffused_fields)
 
 ##############################################################################
 # Run!
