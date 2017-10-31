@@ -9,8 +9,8 @@ import sys
 #dt = 1./20
 #dt = 0.01
 #dt = 0.005
-#dt = 0.0075
-dt = 0.003
+dt = 0.0075
+#dt = 0.003
 
 if '--running-tests' in sys.argv:
     tmax = dt
@@ -23,18 +23,18 @@ else:
 ##############################################################################
 # Construct 1d periodic base mesh for idealised lab experiment of Park et al. (1994)
 #columns = 20  # number of columns
-#columns = 40
+columns = 40
 #columns = 80
-columns = 100
+#columns = 100
 L = 0.2
 #L = 0.1
 m = PeriodicIntervalMesh(columns, L)
 
 # build 2D mesh by extruding the base mesh
 #nlayers = 45  # horizontal layers
-#nlayers = 90
+nlayers = 90
 #nlayers = 180
-nlayers = 225
+#nlayers = 225
 H = 0.45  # Height position of the model top
 #H = 0.45/2
 mesh = ExtrudedMesh(m, layers=nlayers, layer_height=H/nlayers)
@@ -163,7 +163,8 @@ A_z1 = bprime
 
 r = Function(b0.function_space()).assign(Constant(0.0))
 r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
-b_pert = r*A_z1/2.
+b_pert = r*A_z1
+#b_pert = r*A_z1/2.
 #b_pert = r*A_z1/4.
 #b_pert = r*A_z1/6.
 
@@ -213,11 +214,14 @@ lmda_x1 = 2.0/100                               # Horizontal wavelength of inter
 lmda_z1 = 2.0/100                               # Vertical wavelength of internal waves
 k1 = 2*pi/lmda_x1                               # Horizontal wavenumber of internal waves
 m1 = 2*pi/lmda_z1                               # Vertical wavenumber of internal waves
-
 omega = L*2*pi
-f_ux = -m1/k1*A_z1/2*sin(x[0]*k1 + x[1]*m1 - omega*state.t)
+A_f = A_z1
+#A_f = A_z1/2
+
+f_ux = -m1/k1*A_f*sin(x[0]*k1 + x[1]*m1 - omega*state.t)
+f_uz = A_f*sin(x[0]*k1 + x[1]*m1 - omega*state.t)
+#f_ux = 0.
 #f_uz = 0.
-f_uz = A_z1/2*sin(x[0]*k1 + x[1]*m1 - omega*state.t)
 f_u = as_vector([f_ux,f_uz])
 
 #forcing = IncompressibleForcing(state)
@@ -231,8 +235,8 @@ forcing = IncompressibleForcing(state, extra_terms=f_u)
 # mu is a numerical parameter
 # kappa is the diffusion constant for each variable
 # Note that molecular diffusion coefficients were taken from Lautrup, 2005:
-kappa_u = 1.*10**(-6.)/10
-kappa_b = 1.4*10**(-7.)/10
+#kappa_u = 1.*10**(-6.)/10
+#kappa_b = 1.4*10**(-7.)/10
 
 #kappa_u = 1.*10**(-6.)/5
 #kappa_b = 1.4*10**(-7.)/5
@@ -242,6 +246,9 @@ kappa_b = 1.4*10**(-7.)/10
 
 #kappa_u = 1.*10**(-6.)
 #kappa_b = 1.4*10**(-7.)
+
+kappa_u = 1.*10**(-6.)
+kappa_b = 0.0
 
 #kappa_u = 1.*10**(-6.)*10
 #kappa_b = 1.4*10**(-7.)*10
@@ -270,8 +277,8 @@ diffused_fields.append(("b", InteriorPenalty(state, Vb, kappa=kappa_b,
 ##############################################################################
 # build time stepper
 ##############################################################################
-stepper = Timestepper(state, advected_fields, linear_solver, forcing)
-#stepper = Timestepper(state, advected_fields, linear_solver, forcing, diffused_fields)
+#stepper = Timestepper(state, advected_fields, linear_solver, forcing)
+stepper = Timestepper(state, advected_fields, linear_solver, forcing, diffused_fields)
 
 ##############################################################################
 # Run!
