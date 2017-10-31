@@ -212,6 +212,7 @@ class CrankNicolson(BaseTimestepper):
 
             self._apply_bcs()
 
+
 class AdvectionDiffusion(BaseTimestepper):
     """
     This class implements a timestepper for the advection-diffusion equations.
