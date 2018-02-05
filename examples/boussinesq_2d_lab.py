@@ -131,26 +131,24 @@ b_b = Function(Vb).interpolate(bref)
 # Define bouyancy perturbation to represent background soup of internal waves in idealised lab scenario of Park et al.
 g = parameters.g
 
-rho0_13 = 1006.47
 drho0_dz13 = -122.09
-dgamma13 = 100./3
-dz_b = 2./100
-rhoprime13 = dgamma13 * dz_b
-bprime13 = g/rho0_13 * rhoprime13
 
 #No clear number for buoyancy perturbation for run 18 -
 #Try to scale perturbations using background stratification
 #From Park et al run 18:
 rho0 = 1090.95075
 drho0_dz = -425.9
-
 #From Park et al run 14:
 #rho0 = 896.2416
 #drho0_dz = -31.976
 
-dgamma = dgamma13 * drho0_dz/drho0_dz13
-bprime_ratio = rho0/rho0_13 * dgamma13/dgamma
-bprime = bprime13/bprime_ratio
+dgamma = 100./3
+dz_b = 2./100
+a0 = 100.
+z_a = Lz/2
+rhoprime13 = dgamma*z_a + a0*dz_b + dgamma/2*dz_b
+scalefactor = g/rho0* drho0_dz/drho0_dz13
+bprime = rhoprime13 * scalefactor
 A_z1 = bprime
 
 
