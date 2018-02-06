@@ -4,7 +4,7 @@ from firedrake import split, LinearVariationalProblem, \
     div, dx, jump, avg, dS_v, dS_h, ds_v, ds_t, ds_b, inner, dot, grad, \
     MixedFunctionSpace, FunctionSpace, Function, \
     MixedVectorSpaceBasis, VectorSpaceBasis, BrokenElement, \
-    Projector, assemble, LinearSolver, Tensor, AssembledVector
+    assemble, LinearSolver, Tensor, AssembledVector
 from firedrake.solving_utils import flatten_parameters
 from firedrake.parloops import par_loop, READ, INC
 
