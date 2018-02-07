@@ -139,9 +139,9 @@ w_pert = -psi_prime_max*k1*cos(k1*x[0])
 u0.project(as_vector([u_base + u_pert, w_base + w_pert]))
 
 kappa_u = 1.e-6
-fx = -kappa_u*du/dz_u**2*(tanh(alpha)*(1-tanh(alpha)**2))*L
+fz = -kappa_u*du/dz_u**2*(tanh(alpha)*(1-tanh(alpha)**2))*L
 fxz = (du/(2*dz_u)*(1-tanh(alpha)**2)-k1**2*psi_base)*psi_prime_max*sin(k1*x[0])
-p = fx + fxz
+p = fz + fxz
 
 # pass these initial conditions to the state.initialise method
 state.initialise([("u", u0), ("p", p0), ("b", b0)])
