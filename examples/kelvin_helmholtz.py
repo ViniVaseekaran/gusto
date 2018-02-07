@@ -1,6 +1,6 @@
 from gusto import *
 from firedrake import PeriodicIntervalMesh, ExtrudedMesh, \
-    cos, sin, exp, pi, SpatialCoordinate, Constant, Function, as_vector, DirichletBC, tanh, cosh, ln
+    cos, sin, exp, pi, SpatialCoordinate, Constant, Function, as_vector, DirichletBC, tanh, cosh, ln, conditional, eq, VectorFunctionSpace
 import numpy as np
 import sympy as sp
 from sympy.stats import Normal
@@ -134,9 +134,12 @@ PsiAbsMax = 0.0022366517968690366
 psi_prime_max = 1/20. * PsiAbsMax
 lambda1 = 1./5*L
 k1 = 2*pi/lambda1
+
 w_base = 0
-w_pert = -psi_prime_max*k1*cos(k1*x[0]) 
-u0.project(as_vector([u_base + u_pert, w_base + w_pert]))
+w_pert = conditional(eq(x[1], H/2.), -psi_prime_max*k1*cos(k1*x[0]), 0.)
+Vu = VectorFunctionSpace(mesh, "CG", 2)
+u_init = Function(Vu).interpolate(as_vector([u_base + u_pert, w_base + w_pert]))
+u0.project(u_init)
 
 kappa_u = 1.e-6
 fx = -kappa_u*du/dz_u**2*(tanh(alpha)*(1-tanh(alpha)**2))*L
