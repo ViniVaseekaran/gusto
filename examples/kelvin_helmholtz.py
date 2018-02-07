@@ -1,6 +1,6 @@
 from gusto import *
 from firedrake import PeriodicIntervalMesh, ExtrudedMesh, \
-    cos, sin, exp, pi, SpatialCoordinate, Constant, Function, as_vector, DirichletBC
+    cos, sin, exp, pi, SpatialCoordinate, Constant, Function, as_vector, DirichletBC, tanh, cosh, ln
 import numpy as np
 import sympy as sp
 from sympy.stats import Normal
@@ -72,7 +72,7 @@ points = np.array([[0.04,0.21]])
 
 #output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
 #perturbation_fields=['b'], point_data=[('b', points)], checkpoint=False)
-output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
+output = OutputParameters(dirname='kh', dumpfreq=1, dumplist=['u','b'], 
 perturbation_fields=['b'], checkpoint=False)
 
 # class containing physical parameters
@@ -125,21 +125,22 @@ incompressible_hydrostatic_balance(state, b_b, p0, top=False)
 speed = Constant(0.01)
 dz_u = Constant(0.001)
 du = 2*speed
-alpha = (x[1]-Lz/2.)/dz_u
-u_base = du/2.*np.tanh(alpha)
+alpha = (x[1]-H/2.)/dz_u
+u_base = du/2.*tanh(alpha)
 u_pert = 0
 
-psi_base = du*dz_u/2*( ln(2) - Lz/(2*dz_u) + ln(np.cosh(alpha)) ) 
+psi_base = du*dz_u/2*( ln(2) - H/(2*dz_u) + ln(cosh(alpha)) ) 
 PsiAbsMax = 0.0022366517968690366
 psi_prime_max = 1/20. * PsiAbsMax
-lambda1 = 1./5*Lx
-k1 = 2*np.pi/lambda1
+lambda1 = 1./5*L
+k1 = 2*pi/lambda1
 w_base = 0
 w_pert = -psi_prime_max*k1*cos(k1*x[0]) 
 u0.project(as_vector([u_base + u_pert, w_base + w_pert]))
 
-fx = -nu*du/dz_u**2*(np.tanh(alpha)*(1-np.tanh(alpha)**2))*Lx 
-fxz = (du/(2*dz_u)*(1-np.tanh(alpha)**2)-k1**2*psi_base)*psi_prime_max*sin(k1*x[0])
+kappa_u = 1.e-6
+fx = -kappa_u*du/dz_u**2*(tanh(alpha)*(1-tanh(alpha)**2))*L
+fxz = (du/(2*dz_u)*(1-tanh(alpha)**2)-k1**2*psi_base)*psi_prime_max*sin(k1*x[0])
 p = fx + fxz
 
 # pass these initial conditions to the state.initialise method
