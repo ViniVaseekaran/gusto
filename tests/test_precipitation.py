@@ -25,11 +25,11 @@ def setup_fallout(dirname):
     mesh = ExtrudedMesh(m, layers=nlayers, layer_height=(H / nlayers))
     x = SpatialCoordinate(mesh)
 
-    fieldlist = ['u', 'rho', 'theta', 'rain']
+    fieldlist = ['u', 'rho', 'theta']
     timestepping = TimesteppingParameters(dt=1.0, maxk=4, maxi=1)
     output = OutputParameters(dirname=dirname+"/fallout",
                               dumpfreq=1,
-                              dumplist=['rain'])
+                              perturbation_fields=['rain'])
     parameters = CompressibleParameters()
     diagnostic_fields = [Precipitation()]
     state = State(mesh, vertical_degree=1, horizontal_degree=1,
@@ -58,9 +58,13 @@ def setup_fallout(dirname):
     r = sqrt((x[0] - xc) ** 2 + (x[1] - zc) ** 2)
     rain_expr = conditional(r > rc, 0., 1e-5 * (cos(pi * r / (rc * 2))) ** 2)
 
+    state.set_reference_profiles([('rain', rain0)])
+
     rain0.interpolate(rain_expr)
 
     rho0.assign(1.0)
+
+    
 
     state.initialise([('u', u0),
                       ('rho', rho0),
@@ -93,7 +97,7 @@ def test_fallout_setup(tmpdir):
     filename = path.join(dirname, "fallout/diagnostics.nc")
     data = Dataset(filename, "r")
 
-    rain = data.groups["rain"]
+    rain = data.groups["rain_perturbation"]
     final_rain = rain.variables["total"][-1]
     final_rms_rain = rain.variables["rms"][-1]
 
