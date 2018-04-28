@@ -19,10 +19,12 @@ class BaseTimestepper(object, metaclass=ABCMeta):
         pairs indictaing the fields to diffusion, and the
         :class:`~.Diffusion` to use.
     :arg physics_list: optional list of classes that implement `physics` schemes
+    :arg prescribed_fields: an ordered list of tuples, pairing a field with a function
+       that gives the value of the field at that time step.
     """
 
     def __init__(self, state, advected_fields=None, diffused_fields=None,
-                 physics_list=None):
+                 physics_list=None, prescribed_fields=None):
 
         self.state = state
         if advected_fields is None:
@@ -37,6 +39,10 @@ class BaseTimestepper(object, metaclass=ABCMeta):
             self.physics_list = physics_list
         else:
             self.physics_list = []
+        if prescribed_fields is not None:
+            self.prescribed_fields = prescribed_fields
+        else:
+            self.prescribed_fields = []
 
     @abstractproperty
     def passive_advection(self):
@@ -95,6 +101,9 @@ class BaseTimestepper(object, metaclass=ABCMeta):
 
             state.xnp1.assign(state.xn)
 
+            for field, evaluation in self.prescribed_fields:
+                field.project(evaluation(t))
+
             self.semi_implicit_step()
 
             for name, advection in self.passive_advection:
@@ -143,9 +152,9 @@ class CrankNicolson(BaseTimestepper):
     """
 
     def __init__(self, state, advected_fields, linear_solver, forcing,
-                 diffused_fields=None, physics_list=None):
+                 diffused_fields=None, physics_list=None, prescribed_fields=None):
 
-        super().__init__(state, advected_fields, diffused_fields, physics_list)
+        super().__init__(state, advected_fields, diffused_fields, physics_list, prescribed_fields=None)
         self.linear_solver = linear_solver
         self.forcing = forcing
 
