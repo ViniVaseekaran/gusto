@@ -101,8 +101,12 @@ class BaseTimestepper(object, metaclass=ABCMeta):
 
             state.xnp1.assign(state.xn)
 
-            for field, evaluation in self.prescribed_fields:
-                field.project(evaluation(t))
+            for name, evaluation in self.prescribed_fields:
+                if name in self.xn_fields:
+                    self.xn_fields[name].project(evaluation(t))
+                    self.xnp1_fields[name].project(evaluation(t + dt))
+                else:
+                    state.fields(name).project(evaluation(t))
 
             self.semi_implicit_step()
 
@@ -227,9 +231,9 @@ class AdvectionDiffusion(BaseTimestepper):
     """
 
     def __init__(self, state, advected_fields=None,
-                 diffused_fields=None, physics_list=None):
+                 diffused_fields=None, physics_list=None, prescribed_fields=None):
 
-        super(AdvectionDiffusion, self).__init__(state, advected_fields, diffused_fields, physics_list)
+        super(AdvectionDiffusion, self).__init__(state, advected_fields, diffused_fields, physics_list, prescribed_fields)
         self.active_advection = [(name, scheme) for name, scheme in self.advected_fields if name in state.fieldlist]
         self.xn_fields = {name: func for (name, func) in
                              zip(state.fieldlist, state.xn.split())}
