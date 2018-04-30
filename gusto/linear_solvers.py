@@ -2,10 +2,11 @@ from firedrake import split, LinearVariationalProblem, \
     LinearVariationalSolver, TestFunctions, TrialFunctions, \
     TestFunction, TrialFunction, lhs, rhs, DirichletBC, FacetNormal, \
     div, dx, jump, avg, dS_v, dS_h, inner, MixedFunctionSpace, dot, grad, \
-    Function, MixedVectorSpaceBasis, VectorSpaceBasis, warning
+    Function, MixedVectorSpaceBasis, VectorSpaceBasis
 from firedrake.solving_utils import flatten_parameters
 
-from gusto.forcing import exner, exner_rho, exner_theta
+from gusto.configuration import DEBUG
+from gusto import thermodynamics
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 
@@ -37,7 +38,7 @@ class TimesteppingSolver(object, metaclass=ABCMeta):
                 solver_parameters = p
             self.solver_parameters = solver_parameters
 
-        if state.output.Verbose:
+        if state.output.log_level == DEBUG:
             self.solver_parameters["ksp_monitor_true_residual"] = True
 
         # setup the solver
@@ -104,7 +105,7 @@ class CompressibleSolver(TimesteppingSolver):
         else:
             dgspace = state.spaces("DG")
             if any(deg > 2 for deg in dgspace.ufl_element().degree()):
-                warning("default quadrature degree most likely not sufficient for this degree element")
+                state.logger.warning("default quadrature degree most likely not sufficient for this degree element")
             self.quadrature_degree = (5, 5)
 
         super().__init__(state, solver_parameters, overwrite_solver_parameters)
@@ -132,9 +133,9 @@ class CompressibleSolver(TimesteppingSolver):
         # Get background fields
         thetabar = state.fields("thetabar")
         rhobar = state.fields("rhobar")
-        pibar = exner(thetabar, rhobar, state)
-        pibar_rho = exner_rho(thetabar, rhobar, state)
-        pibar_theta = exner_theta(thetabar, rhobar, state)
+        pibar = thermodynamics.pi(state.parameters, rhobar, thetabar)
+        pibar_rho = thermodynamics.pi_rho(state.parameters, rhobar, thetabar)
+        pibar_theta = thermodynamics.pi_theta(state.parameters, rhobar, thetabar)
 
         # Analytical (approximate) elimination of theta
         k = state.k             # Upward pointing unit vector
@@ -165,7 +166,7 @@ class CompressibleSolver(TimesteppingSolver):
             thetabar = thetabar / (1 + water_t)
 
         eqn = (
-            inner(w, (u - u_in))*dx
+            inner(w, (state.h_project(u) - u_in))*dx
             - beta*cp*div(theta*V(w))*pibar*dxp
             # following does nothing but is preserved in the comments
             # to remind us why (because V(w) is purely vertical.
@@ -255,10 +256,10 @@ class IncompressibleSolver(TimesteppingSolver):
         'pc_fieldsplit_type': 'additive',
         'fieldsplit_0': {'ksp_type': 'preonly',
                          'pc_type': 'lu',
-                         'pc_factor_mat_solver_package': 'mumps'},
+                         'pc_factor_mat_solver_type': 'mumps'},
         'fieldsplit_1': {'ksp_type': 'preonly',
                          'pc_type': 'lu',
-                         'pc_factor_mat_solver_package': 'mumps'}
+                         'pc_factor_mat_solver_type': 'mumps'}
     }
 
     def __init__(self, state, L, solver_parameters=None,
@@ -377,15 +378,7 @@ class ShallowWaterSolver(TimesteppingSolver):
                           'mg_levels': {'ksp_type': 'chebyshev',
                                         'ksp_max_it': 2,
                                         'pc_type': 'bjacobi',
-                                        'sub_pc_type': 'ilu'},
-                          # Broken residual construction
-                          'hdiv_residual': {'ksp_type': 'cg',
-                                            'pc_type': 'bjacobi',
-                                            'sub_pc_type': 'ilu',
-                                            'ksp_rtol': 1e-8},
-                          # Projection step
-                          'hdiv_projection': {'ksp_type': 'cg',
-                                              'ksp_rtol': 1e-8}}
+                                        'sub_pc_type': 'ilu'}}
     }
 
     def _setup_solver(self):

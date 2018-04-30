@@ -45,8 +45,7 @@ def setup_gaussian(dirname):
 
     # build time stepper
     stepper = CrankNicolson(state, advected_fields, linear_solver,
-                          sw_forcing)
-
+                            sw_forcing)
     return stepper
 
 

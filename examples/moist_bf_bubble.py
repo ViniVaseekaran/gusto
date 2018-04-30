@@ -1,8 +1,10 @@
 from gusto import *
+from gusto import thermodynamics
 from firedrake import PeriodicIntervalMesh, ExtrudedMesh, \
-    SpatialCoordinate, conditional, cos, pi, sqrt, exp, NonlinearVariationalProblem, \
+    SpatialCoordinate, conditional, cos, pi, sqrt, NonlinearVariationalProblem, \
     NonlinearVariationalSolver, TestFunction, dx, TrialFunction, Constant, Function, \
-    LinearVariationalProblem, LinearVariationalSolver, DirichletBC
+    LinearVariationalProblem, LinearVariationalSolver, DirichletBC, \
+    FunctionSpace, BrokenElement, VectorFunctionSpace
 import sys
 
 dt = 1.0
@@ -13,23 +15,25 @@ else:
     deltax = 100.
     tmax = 1000.
 
-L = 20000.
+L = 10000.
 H = 10000.
 nlayers = int(H/deltax)
 ncolumns = int(L/deltax)
 
 m = PeriodicIntervalMesh(ncolumns, L)
 mesh = ExtrudedMesh(m, layers=nlayers, layer_height=H/nlayers)
-diffusion = True
+diffusion = False
+recovered = True
+degree = 0 if recovered else 1
 
 fieldlist = ['u', 'rho', 'theta']
 timestepping = TimesteppingParameters(dt=dt, maxk=4, maxi=1)
-output = OutputParameters(dirname='moist_bf', dumpfreq=20, dumplist=['u'], perturbation_fields=[])
+output = OutputParameters(dirname='moist_bf_test', dumpfreq=20, dumplist=['u'], perturbation_fields=[], log_level='INFO')
 params = CompressibleParameters()
 diagnostics = Diagnostics(*fieldlist)
-diagnostic_fields = [Theta_e()]
+diagnostic_fields = [Theta_e(), InternalEnergy(), Perturbation("InternalEnergy")]
 
-state = State(mesh, vertical_degree=1, horizontal_degree=1,
+state = State(mesh, vertical_degree=degree, horizontal_degree=degree,
               family="CG",
               timestepping=timestepping,
               output=output,
@@ -54,22 +58,16 @@ x = SpatialCoordinate(mesh)
 quadrature_degree = (5, 5)
 dxp = dx(degree=(quadrature_degree))
 
-# declare some parameters
-p_0 = params.p_0
-R_d = params.R_d
-R_v = params.R_v
-cp = params.cp
-c_pl = params.c_pl
-c_pv = params.c_pv
-L_v0 = params.L_v0
-kappa = params.kappa
-w_sat1 = params.w_sat1
-w_sat2 = params.w_sat2
-w_sat3 = params.w_sat3
-w_sat4 = params.w_sat4
-T_0 = params.T_0
-g = params.g
-cp = params.cp
+if recovered:
+    VDG1 = FunctionSpace(mesh, "DG", 1)
+    VCG1 = FunctionSpace(mesh, "CG", 1)
+    Vt_brok = FunctionSpace(mesh, BrokenElement(Vt.ufl_element()))
+    Vu_DG1 = VectorFunctionSpace(mesh, "DG", 1)
+    Vu_CG1 = VectorFunctionSpace(mesh, "CG", 1)
+
+    u_spaces = (Vu_DG1, Vu_CG1, Vu)
+    rho_spaces = (VDG1, VCG1, Vr)
+    theta_spaces = (VDG1, VCG1, Vt_brok)
 
 # Define constant theta_e and water_t
 Tsurf = 320.0
@@ -85,9 +83,13 @@ theta_b = Function(Vt).assign(theta0)
 rho_b = Function(Vr).assign(rho0)
 water_vb = Function(Vt).assign(water_v0)
 water_cb = Function(Vt).assign(water_t - water_vb)
+pibar = thermodynamics.pi(state.parameters, rho_b, theta_b)
+Tb = thermodynamics.T(state.parameters, theta_b, pibar, r_v=water_vb)
+Ibar = state.fields("InternalEnergybar", FunctionSpace(mesh, "CG", 1))
+Ibar.interpolate(thermodynamics.internal_energy(state.parameters, rho_b, Tb, r_v=water_vb, r_l=water_cb))
 
 # define perturbation
-xc = 10000.
+xc = L / 2
 zc = 2000.
 rc = 2000.
 Tdash = 2.0
@@ -112,9 +114,10 @@ rho_solver.solve()
 w_v = Function(Vt)
 phi = TestFunction(Vt)
 
-p = p_0 * (R_d * theta0 * rho0 / p_0) ** (1.0 / (1.0 - kappa))
-T = theta0 * (R_d * theta0 * rho0 / p_0) ** (kappa / (1.0 - kappa)) / (1.0 + w_v * R_v / R_d)
-w_sat = w_sat1 / (p * exp(w_sat2 * ((T - T_0) / (T - w_sat3))) - w_sat4)
+pi = thermodynamics.pi(state.parameters, rho0, theta0)
+p = thermodynamics.p(state.parameters, pi)
+T = thermodynamics.T(state.parameters, theta0, pi, r_v=w_v)
+w_sat = thermodynamics.r_sat(state.parameters, T, p)
 
 w_functional = (phi * w_v * dxp - phi * w_sat * dxp)
 w_problem = NonlinearVariationalProblem(w_functional, w_v)
@@ -135,20 +138,31 @@ state.set_reference_profiles([('rho', rho_b),
                               ('water_v', water_vb)])
 
 # Set up advection schemes
-ueqn = EulerPoincare(state, Vu)
-rhoeqn = AdvectionEquation(state, Vr, equation_form="continuity")
-thetaeqn = EmbeddedDGAdvection(state, Vt, equation_form="advective")
+if recovered:
+    ueqn = EmbeddedDGAdvection(state, Vu, equation_form="advective", recovered_spaces=u_spaces)
+    rhoeqn = EmbeddedDGAdvection(state, Vr, equation_form="continuity", recovered_spaces=rho_spaces)
+    thetaeqn = EmbeddedDGAdvection(state, Vt, equation_form="advective", recovered_spaces=theta_spaces)
+else:
+    ueqn = EulerPoincare(state, Vu)
+    rhoeqn = AdvectionEquation(state, Vr, equation_form="continuity")
+    thetaeqn = EmbeddedDGAdvection(state, Vt, equation_form="advective")
 
-advected_fields = [('u', ThetaMethod(state, u0, ueqn)),
-                   ('rho', SSPRK3(state, rho0, rhoeqn)),
+advected_fields = [('rho', SSPRK3(state, rho0, rhoeqn)),
                    ('theta', SSPRK3(state, theta0, thetaeqn)),
                    ('water_v', SSPRK3(state, water_v0, thetaeqn)),
                    ('water_c', SSPRK3(state, water_c0, thetaeqn))]
+if recovered:
+    advected_fields.append(('u', SSPRK3(state, u0, ueqn)))
+else:
+    advected_fields.append(('u', ThetaMethod(state, u0, ueqn)))
 
 linear_solver = CompressibleSolver(state, moisture=moisture)
 
 # Set up forcing
-compressible_forcing = CompressibleForcing(state, moisture=moisture)
+if recovered:
+    compressible_forcing = CompressibleForcing(state, moisture=moisture, euler_poincare=False)
+else:
+    compressible_forcing = CompressibleForcing(state, moisture=moisture)
 
 # diffusion
 bcs = [DirichletBC(Vu, 0.0, "bottom"),
