@@ -6,6 +6,27 @@ import sympy as sp
 from sympy.stats import Normal
 import sys
 
+
+# Programme control:
+ParkRun = 14
+#ParkRun = 16
+#ParkRun = 18
+
+InitialPert = 0
+InitialPertSimpleWave = 0
+InitialPertGuassian = 0
+InitialPertRandom = 0
+
+AddForce = 1
+AddWaveForce = 0
+AddRandomForce = 0
+AddDedalusForce = 1
+
+MolecularDiffusion = 1
+EddyDiffusion = 0
+ScaleDiffusion = 0
+
+#Set some time control options:
 #dt = 1./20
 #dt = 0.01
 #dt = 0.005
@@ -15,34 +36,29 @@ dt = 0.0075
 if '--running-tests' in sys.argv:
     tmax = dt
 else:
-    tmax = 3600*48.
+    tmax = 48*60*60
     #tmax = 1
  
+
 ##############################################################################
 # set up mesh
 ##############################################################################
 # Construct 1d periodic base mesh for idealised lab experiment of Park et al. (1994)
-#columns = 20  # number of columns
-columns = 40
-#columns = 80
-#columns = 100
+#columns = 40  # number of columns
+columns = 80
 L = 0.2
-#L = 0.1
 m = PeriodicIntervalMesh(columns, L)
 
 # build 2D mesh by extruding the base mesh
-#nlayers = 45  # horizontal layers
-nlayers = 90
-#nlayers = 180
-#nlayers = 225
+#nlayers = 90  # horizontal layers
+nlayers = 180
 H = 0.45  # Height position of the model top
-#H = 0.45/2
 mesh = ExtrudedMesh(m, layers=nlayers, layer_height=H/nlayers)
+
 
 ##############################################################################
 # set up all the other things that state requires
 ##############################################################################
-
 
 # list of prognostic fieldnames
 # this is passed to state and used to construct a dictionary,
@@ -52,17 +68,19 @@ mesh = ExtrudedMesh(m, layers=nlayers, layer_height=H/nlayers)
 # b is the buoyancy
 fieldlist = ['u', 'p', 'b']
 
+
 # class containing timestepping parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
 subcycles = 4
 timestepping = TimesteppingParameters(dt=dt*subcycles)
 
+
 # class containing output parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
 
-dumpfreq = int( 5/(dt*subcycles) )
+dumpfreq = int( 2/(dt*subcycles) )
 
 #points = np.array([[0.05,0.22]])
 points = np.array([[0.04,0.21]])
@@ -80,15 +98,12 @@ perturbation_fields=['b'], checkpoint=False)
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
 
-#N=1.957 (run 18), N=1.1576 (run 16), N=0.5916 (run 14), N=0.2
-parameters = CompressibleParameters(N=1.957)
-
 # Physical parameters adjusted for idealised lab experiment of Park et al. (1994):
-# The value of the background buoyancy frequency N is that for their run number 18, which has clear stair-step features.
-# p_0 was found by assuming an initially hydrostatic fluid and a reference density rho0=1090.95075 kg m^(-3).
-# The reference density was found by estimating drho/dz from Fig. 7a of Park et al. (1994), converting to SI units,
-# and then using the N^2 value above.
-# p_0=106141.3045
+if ParkRun == 14: N2=0.35
+if ParkRun == 16: N2=1.34
+if ParkRun == 18: N2=3.83
+parameters = CompressibleParameters(N=np.sqrt(N2))
+
 
 # class for diagnostics
 # fields passed to this class will have basic diagnostics computed
@@ -98,7 +113,8 @@ diagnostics = Diagnostics(*fieldlist)
 # list of diagnostic fields, each defined in a class in diagnostics.py
 diagnostic_fields = [CourantNumber()]
 
-# setup state, passing in the mesh, information on the required finite element
+
+# set up state, passing in the mesh, information on the required finite element
 # function spaces, z, k, and the classes above
 state = State(mesh, vertical_degree=1, horizontal_degree=1,
               family="CG",
@@ -109,6 +125,7 @@ state = State(mesh, vertical_degree=1, horizontal_degree=1,
               fieldlist=fieldlist,
               diagnostic_fields=diagnostic_fields)
 
+
 ##############################################################################
 # Initial conditions
 ##############################################################################
@@ -117,7 +134,7 @@ u0 = state.fields("u")
 p0 = state.fields("p")
 b0 = state.fields("b")
 
-# first setup the background buoyancy profile
+# first set up the background buoyancy profile
 # z.grad(bref) = N**2
 # the following is symbolic algebra, using the default buoyancy frequency
 # from the parameters class. x[1]=z and comes from x=SpatialCoordinate(mesh)
@@ -129,50 +146,47 @@ Vb = b0.function_space()
 b_b = Function(Vb).interpolate(bref)
 
 # Define bouyancy perturbation to represent background soup of internal waves in idealised lab scenario of Park et al.
+# The reference density was found by estimating drho/dz from Figures of Park et al. (1994), converting to SI units,
+# and then using the N^2 value.
 g = parameters.g
 
 drho0_dz13 = -122.09
 
 #No clear number for buoyancy perturbation for run 18 -
-#Try to scale perturbations using background stratification
-#From Park et al run 18:
-rho0 = 1090.95075
-drho0_dz = -425.9
-#From Park et al run 14:
-#rho0 = 896.2416
-#drho0_dz = -31.976
+#Scale perturbations using background stratification:
+if ParkRun == 14: drho0_dz = -31.976
+if ParkRun == 18: drho0_dz = -425.9
+rho0 = -g/N2*drho0_dz
 
 dgamma = 100./3
 dz_b = 2./100
 a0 = 100.
-z_a = Lz/2
+z_a = H/2
 rhoprime13 = dgamma*z_a + a0*dz_b + dgamma/2*dz_b
 scalefactor = g/rho0* drho0_dz/drho0_dz13
 bprime = rhoprime13 * scalefactor
-A_z1 = bprime
 
+if InitialPert == 1:
+    if InitialPertSimpleWave == 1:
+        #b_pert = bprime/2.*sin(k1*x[0]) + bprime/2.*sin(m1*x[1])
+        #b_pert = bprime/2. * sin(k1*x[0]+m1*x[1])
+        b_pert = bprime/2. * sin(m1*x[1])
+    if InitialPertGaussian == 1:
+        sigma = 0.01
+        b_pert = bprime*exp( -( x[1] - H/2 )**2 / (2*sigma**2) )
+        #options that did not work:
+        #b_pert = sp.Piecewise( (0, x[1] < H/2-0.01), (0, x[1] > H/2+0.01), (A_z1, H/2-0.01 >= x[1] <= H/2+0.01, True) )
+        #b_pert = sp.integrate( A_z1 * DiracDelta(x[1]-H/2), (x[1],0,H) )
+    if InitialPertRandom == 1:
+        r = Function(b0.function_space()).assign(Constant(0.0))
+        r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
+        b_pert = r*bprime/2.
+else: b_pert = 0
 
-#b_pert = A_x1/2.*sin(k1*x[0]) + A_z1/2.*sin(m1*x[1])
-#b_pert = A_z1/2. * sin(k1*x[0]+m1*x[1])
-#b_pert = A_z1/2. * sin(m1*x[1])
-
-#sigma = 0.01
-#b_pert = A_z1*exp( -( x[1] - H/2 )**2 / (2*sigma**2) )
-
-r = Function(b0.function_space()).assign(Constant(0.0))
-r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
-b_pert = r*A_z1
-#b_pert = r*A_z1/2.
-#b_pert = r*A_z1/4.
-#b_pert = r*A_z1/6.
-
-#b_pert = sp.Piecewise( (0, x[1] < H/2-0.01), (0, x[1] > H/2+0.01), (A_z1, H/2-0.01 >= x[1] <= H/2+0.01, True) ) - doesn't work
-#b_pert = sp.integrate( A_z1 * DiracDelta(x[1]-H/2), (x[1],0,H) ) - doesn't work
-
-# interpolate the expression to the function
+# interpolate the expression to the function:
 b0.interpolate(b_b + b_pert)
 
-
+#Balance equations:
 incompressible_hydrostatic_balance(state, b_b, p0, top=False)
 
 # pass these initial conditions to the state.initialise method
@@ -180,6 +194,7 @@ state.initialise([("u", u0), ("p", p0), ("b", b0)])
 
 # set the background buoyancy
 state.set_reference_profiles([("b", b_b)])
+
 
 ##############################################################################
 # Set up advection schemes
@@ -200,31 +215,48 @@ advected_fields = []
 advected_fields.append(("u", SSPRK3(state, u0, ueqn, subcycles=subcycles)))
 advected_fields.append(("b", SSPRK3(state, b0, beqn, subcycles=subcycles)))
 
+
 ##############################################################################
 # Set up linear solver for the timestepping scheme
 ##############################################################################
 linear_solver = IncompressibleSolver(state, L)
 
+
 ##############################################################################
 # Set up forcing
 #############################################################################
-lmda_x1 = 2.0/100                               # Horizontal wavelength of internal waves
-lmda_z1 = 2.0/100                               # Vertical wavelength of internal waves
-k1 = 2*pi/lmda_x1                               # Horizontal wavenumber of internal waves
-m1 = 2*pi/lmda_z1                               # Vertical wavenumber of internal waves
-omega = L*2*pi
-A_f = A_z1
-#A_f = A_z1/2
+if AddRandomForce != 1:
+    if AddForce == 1:
+        if AddWaveForce == 1:
+            lmda_x1 = 2.0/100    # Horizontal wavelength of internal waves
+            lmda_z1 = 2.0/100    # Vertical wavelength of internal waves
+            k1 = 2*pi/lmda_x1    # Horizontal wavenumber of internal waves
+            m1 = 2*pi/lmda_z1    # Vertical wavenumber of internal waves
+            omega = L*2*pi
+            A_f = bprime/2.
+            f_ux = -m1/k1*A_f*sin(x[0]*k1 + x[1]*m1 - omega*state.t)
+            f_uz = A_f*sin(x[0]*k1 + x[1]*m1 - omega*state.t)
 
-f_ux = -m1/k1*A_f*sin(x[0]*k1 + x[1]*m1 - omega*state.t)
-f_uz = A_f*sin(x[0]*k1 + x[1]*m1 - omega*state.t)
-#f_ux = 0.
-#f_uz = 0.
-f_u = as_vector([f_ux,f_uz])
+        if AddDedalusForce == 1:
+            k_int = 10
+            k1 = 2*np.pi*k_int/L
+            k1 = k1/10.
+            m_int = 22
+            m1 = 2*np.pi*m_int/H
+            m1 = m1/10.
+           
+            omega = np.sqrt(N2)*(2*np.pi)
 
-#forcing = IncompressibleForcing(state)
-forcing = IncompressibleForcing(state, extra_terms=f_u)
-#forcing = RandomIncompressibleForcing(state)
+            A_f = bprime/2.
+            f_uz = A_f * cos(k1*x[0]) * sin(m1*x[1]) * sin(omega*state.t)
+            f_ux = -A_f * m1/k1 * sin(k1*x[0]) * cos(m1*x[1]) * sin(omega*state.t)
+    else:
+        f_ux = 0.
+        f_uz = 0.
+    f_u = as_vector([f_ux,f_uz])
+    forcing = IncompressibleForcing(state, extra_terms=f_u)
+else:
+    forcing = RandomIncompressibleForcing(state)
 
 
 ##############################################################################
@@ -233,30 +265,19 @@ forcing = IncompressibleForcing(state, extra_terms=f_u)
 # mu is a numerical parameter
 # kappa is the diffusion constant for each variable
 # Note that molecular diffusion coefficients were taken from Lautrup, 2005:
-#kappa_u = 1.*10**(-6.)/10
-#kappa_b = 1.4*10**(-7.)/10
+if MolecularDiffusion == 1:
+    kappa_u = 1.*10**(-6.)
+    kappa_b = 1.4*10**(-7.)
+if EddyDiffusion == 1:
+    kappa_u = 10.**(-2.)
+    kappa_b = 10.**(-2.)
+if ScaleDiffusion == 1:
+    DiffScaleFact_u = 10.
+    DiffScaleFact_b = 1000.
+    kappa_u = kappa_u * DiffScaleFact_u
+    kappa_b = kappa_b * DiffScaleFact_b
 
-#kappa_u = 1.*10**(-6.)/5
-#kappa_b = 1.4*10**(-7.)/5
-
-#kappa_u = 1.*10**(-6.)/2
-#kappa_b = 1.4*10**(-7.)/2
-
-#kappa_u = 1.*10**(-6.)
-#kappa_b = 1.4*10**(-7.)
-
-kappa_u = 1.*10**(-6.)
-
-#kappa_u = 1.*10**(-6.)*10
-#kappa_b = 1.4*10**(-7.)*10
-
-#kappa_u = 1.*10**(-6.)*100
-#kappa_b = 1.4*10**(-7.)*100
-
-#Eddy diffusivities:
-#kappa_u = 10.**(-2.)
-#kappa_b = 10.**(-2.)
-
+#Define boundary conditions:
 Vu = u0.function_space()
 Vb = state.spaces("HDiv_v")
 delta = L/columns 		#Grid resolution (same in both directions).
@@ -266,9 +287,9 @@ bcs_b = [DirichletBC(Vb, -N**2*H, "bottom"), DirichletBC(Vb, 0.0, "top")]
 
 diffused_fields = []
 diffused_fields.append(("u", InteriorPenalty(state, Vu, kappa=kappa_u,
-                                           mu=Constant(10./delta), bcs=bcs_u)))
-#diffused_fields.append(("b", InteriorPenalty(state, Vb, kappa=kappa_b,
-#                                             mu=Constant(10./delta), bcs=bcs_b)))
+                                           mu=Constant(10./delta))))
+diffused_fields.append(("b", InteriorPenalty(state, Vb, kappa=kappa_b,
+                                             mu=Constant(10./delta), bcs=bcs_b)))
 
 
 ##############################################################################
@@ -276,6 +297,7 @@ diffused_fields.append(("u", InteriorPenalty(state, Vu, kappa=kappa_u,
 ##############################################################################
 #stepper = CrankNicolson(state, advected_fields, linear_solver, forcing)
 stepper = CrankNicolson(state, advected_fields, linear_solver, forcing, diffused_fields)
+
 
 ##############################################################################
 # Run!
