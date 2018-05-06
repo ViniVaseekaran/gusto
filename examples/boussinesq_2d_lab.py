@@ -8,9 +8,9 @@ import sys
 
 
 # Programme control:
-ParkRun = 14
+#ParkRun = 14
 #ParkRun = 16
-#ParkRun = 18
+ParkRun = 18
 
 InitialPert = 0
 InitialPertSimpleWave = 0
@@ -18,9 +18,9 @@ InitialPertGuassian = 0
 InitialPertRandom = 0
 
 AddForce = 1
-AddWaveForce = 0
+AddWaveForce = 1
 AddRandomForce = 0
-AddDedalusForce = 1
+AddDedalusForce = 0
 
 MolecularDiffusion = 1
 EddyDiffusion = 0
@@ -227,23 +227,32 @@ linear_solver = IncompressibleSolver(state, L)
 #############################################################################
 if AddRandomForce != 1:
     if AddForce == 1:
+
         if AddWaveForce == 1:
-            lmda_x1 = 2.0/100    # Horizontal wavelength of internal waves
-            lmda_z1 = 2.0/100    # Vertical wavelength of internal waves
-            k1 = 2*pi/lmda_x1    # Horizontal wavenumber of internal waves
-            m1 = 2*pi/lmda_z1    # Vertical wavenumber of internal waves
-            omega = L*2*pi
+            #These are the wavenumbers observed in the lab experiments:
+            lmda_x1 = 2.0/100
+            lmda_z1 = 2.0/100
+
+            #Domain is periodic in x so we get as close to the 
+            #observations are possible:
+            k_int = 10
+            k1 = 2*np.pi*k_int/L
+            #Domain is not periodic in z so we can exactly mimic the 
+            #observations:
+            m1 = 2*pi/lmda_z1
+            
+            omega = 2*pi*N
+
             A_f = bprime/2.
-            f_ux = -m1/k1*A_f*sin(x[0]*k1 + x[1]*m1 - omega*state.t)
-            f_uz = A_f*sin(x[0]*k1 + x[1]*m1 - omega*state.t)
+
+            f_ux = -m1/k1*A_f * sin(x[0]*k1 + x[1]*m1 - omega*state.t)
+            f_uz = A_f * sin(x[0]*k1 + x[1]*m1 - omega*state.t)
 
         if AddDedalusForce == 1:
             k_int = 10
             k1 = 2*np.pi*k_int/L
-            k1 = k1/10.
             m_int = 22
             m1 = 2*np.pi*m_int/H
-            m1 = m1/10.
            
             omega = np.sqrt(N2)*(2*np.pi)
 
@@ -287,9 +296,9 @@ bcs_b = [DirichletBC(Vb, -N**2*H, "bottom"), DirichletBC(Vb, 0.0, "top")]
 
 diffused_fields = []
 diffused_fields.append(("u", InteriorPenalty(state, Vu, kappa=kappa_u,
-                                           mu=Constant(10./delta))))
+                                           mu=Constant(10./delta) )))
 diffused_fields.append(("b", InteriorPenalty(state, Vb, kappa=kappa_b,
-                                             mu=Constant(10./delta), bcs=bcs_b)))
+                                             mu=Constant(10./delta) )))
 
 
 ##############################################################################
