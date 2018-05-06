@@ -269,7 +269,7 @@ else:
 
 
 ##############################################################################
-#Set up diffusion scheme
+#Set up diffusion scheme and any desired BCs
 ##############################################################################
 # mu is a numerical parameter
 # kappa is the diffusion constant for each variable
@@ -286,7 +286,6 @@ if ScaleDiffusion == 1:
     kappa_u = kappa_u * DiffScaleFact_u
     kappa_b = kappa_b * DiffScaleFact_b
 
-#Define boundary conditions:
 Vu = u0.function_space()
 Vb = state.spaces("HDiv_v")
 delta = L/columns 		#Grid resolution (same in both directions).
