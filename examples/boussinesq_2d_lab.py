@@ -12,10 +12,10 @@ import sys
 #ParkRun = 16
 ParkRun = 18
 
-InitialPert = 0
-InitialPertSimpleWave = 0
-InitialPertGuassian = 0
-InitialPertRandom = 0
+ICs = 0
+ICsSimpleWave = 0
+ICsGuassian = 0
+ICsRandom = 0
 
 AddForce = 1
 AddWaveForce = 1
@@ -166,18 +166,18 @@ rhoprime13 = dgamma*z_a + a0*dz_b + dgamma/2*dz_b
 scalefactor = g/rho0* drho0_dz/drho0_dz13
 bprime = rhoprime13 * scalefactor
 
-if InitialPert == 1:
-    if InitialPertSimpleWave == 1:
+if ICs == 1:
+    if ICsSimpleWave == 1:
         #b_pert = bprime/2.*sin(k1*x[0]) + bprime/2.*sin(m1*x[1])
         #b_pert = bprime/2. * sin(k1*x[0]+m1*x[1])
         b_pert = bprime/2. * sin(m1*x[1])
-    if InitialPertGaussian == 1:
+    if ICsGaussian == 1:
         sigma = 0.01
         b_pert = bprime*exp( -( x[1] - H/2 )**2 / (2*sigma**2) )
         #options that did not work:
         #b_pert = sp.Piecewise( (0, x[1] < H/2-0.01), (0, x[1] > H/2+0.01), (A_z1, H/2-0.01 >= x[1] <= H/2+0.01, True) )
         #b_pert = sp.integrate( A_z1 * DiracDelta(x[1]-H/2), (x[1],0,H) )
-    if InitialPertRandom == 1:
+    if ICsRandom == 1:
         r = Function(b0.function_space()).assign(Constant(0.0))
         r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
         b_pert = r*bprime/2.
