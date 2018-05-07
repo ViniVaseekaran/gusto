@@ -30,8 +30,8 @@ ScaleDiffusion = 0
 #dt = 1./20
 #dt = 0.01
 #dt = 0.005
-dt = 0.0075
-#dt = 0.003
+#dt = 0.0075
+dt = 0.0005
 
 if '--running-tests' in sys.argv:
     tmax = dt
@@ -229,7 +229,7 @@ if AddRandomForce != 1:
     if AddForce == 1:
 
         if AddWaveForce == 1:
-            #These are the wavenumbers observed in the lab experiments:
+            #These are the wavelengths observed in the lab experiments:
             lmda_x1 = 2.0/100
             lmda_z1 = 2.0/100
 
@@ -282,13 +282,13 @@ if EddyDiffusion == 1:
     kappa_b = 10.**(-2.)
 if ScaleDiffusion == 1:
     DiffScaleFact_u = 10.
-    DiffScaleFact_b = 1000.
+    DiffScaleFact_b = 10.
     kappa_u = kappa_u * DiffScaleFact_u
     kappa_b = kappa_b * DiffScaleFact_b
 
 Vu = u0.function_space()
 Vb = state.spaces("HDiv_v")
-delta = L/columns 		#Grid resolution (same in both directions).
+delta = L/columns		#Grid resolution (same in both directions).
 
 bcs_u = [DirichletBC(Vu, 0.0, "bottom"), DirichletBC(Vu, 0.0, "top")]
 bcs_b = [DirichletBC(Vb, -N**2*H, "bottom"), DirichletBC(Vb, 0.0, "top")]
