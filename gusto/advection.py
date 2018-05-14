@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod, abstractproperty
 from firedrake import Function, LinearVariationalProblem, \
-    LinearVariationalSolver, Projector, Interpolator
+    LinearVariationalSolver, Projector, Interpolator, TestFunction, TrialFunction, \
+    ds, ds_t, ds_b, ds_v, dx, assemble, sqrt
 from firedrake.utils import cached_property
 from gusto.configuration import DEBUG
 from gusto.transport_equation import EmbeddedDGAdvection
@@ -10,7 +11,7 @@ import ufl
 import numpy as np
 
 
-__all__ = ["NoAdvection", "ForwardEuler", "SSPRK3", "ThetaMethod"]
+__all__ = ["NoAdvection", "ForwardEuler", "SSPRK3", "ThetaMethod", "Recoverer"]
 
 
 def embedded_dg(original_apply):
@@ -352,7 +353,7 @@ class Recoverer(object):
     :arg v_out: :class:`.Function` to put the result in.
     """
 
-    def __init__(self, v, v_out):
+    def __init__(self, v, v_out, VDG=None):
 
         if isinstance(v, expression.Expression) or not isinstance(v, (ufl.core.expr.Expr, function.Function)):
             raise ValueError("Can only recover UFL expression or Functions not '%s'" % type(v))
@@ -365,6 +366,30 @@ class Recoverer(object):
         self.v = v
         self.v_out = v_out
         self.V = v_out.function_space()
+        self.VDG = VDG
+        self.VDG1 = v.function_space()
+
+        # if doing extra recovery on boundaries:
+        if self.VDG is not None:
+            # this restores the original DG0 function
+            self.v_in_DG0 = Function(VDG).interpolate(v)
+            self.v_back = Function(VDG)  # CG1 function interpolated back to DG0
+            self.v_boundary_DG0 = Function(self.VDG)  # the CG1 function on the boundary
+            self.v_boundary_CG1 = Function(self.V)
+            self.v_back_DG1 = Function(self.VDG1)
+            psi = TestFunction(self.VDG)
+            v_trial = TrialFunction(self.VDG)
+            self.area = Function(self.VDG)
+            test = TestFunction(self.VDG)
+            assemble(test*dx, tensor=self.area)
+            L = psi * self.v_back_DG1 * sqrt(self.area)
+            a = psi * v_trial * dx
+            if self.V.extruded:
+                L = L * (ds_b + ds_t + ds_v)
+            else:
+                L = L * ds
+            problem = LinearVariationalProblem(a, L, self.v_boundary_DG0)
+            self.boundary_solver = LinearVariationalSolver(problem)
 
         # Check the number of local dofs
         if self.v_out.function_space().finat_element.space_dimension() != self.v.function_space().finat_element.space_dimension():
@@ -404,4 +429,29 @@ class Recoverer(object):
         par_loop(self._average_kernel, ufl.dx, {"vo": (self.v_out, INC),
                                                 "w": (self._weighting, READ),
                                                 "v": (self.v, READ)})
+
+        # do extra recovery
+        if self.VDG is not None:
+            #print("CG1", self.v_out.dat.data)
+            #print("v_DG0", self.v_in_DG0.dat.data)
+            
+            # interpolate CG1 back to DG0
+            self.v_back.interpolate(self.v_out)
+            #print("v_back", self.v_back.dat.data)
+            self.v_back.interpolate(self.v_in_DG0 - self.v_out)
+            #print("v_back_subtracted", self.v_back.dat.data)
+            self.v_back_DG1.interpolate(self.v_back)
+            #print("v_back_DG1", self.v_back_DG1.dat.data)
+            self.boundary_solver.solve()
+            #print("boundary", self.v_boundary_DG0.dat.data)
+
+            # this definitely won't work in general!!
+            self.v_boundary_CG1.dat.zero()
+            self.v_boundary_CG1.dat.data[0] = self.v_back.dat.data[0]
+            self.v_boundary_CG1.dat.data[-1] = self.v_back.dat.data[-1]
+
+            #print("CG_boundary", self.v_boundary_CG1.dat.data)
+            self.v_out.assign(self.v_out - 2 * self.v_boundary_CG1)
+            #print("v_out", self.v_out.dat.data)
+            
         return self.v_out
