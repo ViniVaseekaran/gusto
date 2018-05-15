@@ -12,15 +12,15 @@ import sys
 #ParkRun = 16
 ParkRun = 18
 
-ICs = 0
+ICs = 1
 ICsSimpleWave = 0
-ICsGuassian = 0
-ICsRandom = 0
+ICsGaussian = 0
+ICsRandom = 1
 
-AddForce = 1
+AddNonRandomForce = 0
 AddWaveForce = 1
-AddRandomForce = 0
 AddDedalusForce = 0
+AddRandomForce = 0
 
 MolecularDiffusion = 1
 EddyDiffusion = 0
@@ -31,7 +31,7 @@ ScaleDiffusion = 0
 #dt = 0.01
 #dt = 0.005
 #dt = 0.0075
-dt = 0.0005
+dt = 0.001
 
 if '--running-tests' in sys.argv:
     tmax = dt
@@ -180,7 +180,7 @@ if ICs == 1:
     if ICsRandom == 1:
         r = Function(b0.function_space()).assign(Constant(0.0))
         r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
-        b_pert = r*bprime/2.
+        b_pert = r*bprime*10
 else: b_pert = 0
 
 # interpolate the expression to the function:
@@ -225,47 +225,48 @@ linear_solver = IncompressibleSolver(state, L)
 ##############################################################################
 # Set up forcing
 #############################################################################
-if AddRandomForce != 1:
-    if AddForce == 1:
 
-        if AddWaveForce == 1:
-            #These are the wavelengths observed in the lab experiments:
-            lmda_x1 = 2.0/100
-            lmda_z1 = 2.0/100
+if AddNonRandomForce == 1:
+    if AddWaveForce == 1:
+        #These are the wavelengths observed in the lab experiments:
+        lmda_x1 = 2.0/100
+        lmda_z1 = 2.0/100
 
-            #Domain is periodic in x so we get as close to the 
-            #observations are possible:
-            k_int = 10
-            k1 = 2*np.pi*k_int/L
-            #Domain is not periodic in z so we can exactly mimic the 
-            #observations:
-            m1 = 2*pi/lmda_z1
+        #Domain is periodic in x so we get as close to the 
+        #observations are possible:
+        k_int = 10
+        k1 = 2*np.pi*k_int/L
+        #Domain is not periodic in z so we can exactly mimic the 
+        #observations:
+        m1 = 2*pi/lmda_z1
             
-            omega = 2*pi*N
+        omega = 2*pi*N
 
-            A_f = bprime/2.
+        A_f = bprime/2.
 
-            f_ux = -m1/k1*A_f * sin(x[0]*k1 + x[1]*m1 - omega*state.t)
-            f_uz = A_f * sin(x[0]*k1 + x[1]*m1 - omega*state.t)
+        f_ux = -m1/k1*A_f * sin(x[0]*k1 + x[1]*m1 - omega*state.t)
+        f_uz = A_f * sin(x[0]*k1 + x[1]*m1 - omega*state.t)
 
-        if AddDedalusForce == 1:
-            k_int = 10
-            k1 = 2*np.pi*k_int/L
-            m_int = 22
-            m1 = 2*np.pi*m_int/H
+    if AddDedalusForce == 1:
+        k_int = 10
+        k1 = 2*np.pi*k_int/L
+        m_int = 22
+        m1 = 2*np.pi*m_int/H
            
-            omega = np.sqrt(N2)*(2*np.pi)
+        omega = np.sqrt(N2)*(2*np.pi)
 
-            A_f = bprime/2.
-            f_uz = A_f * cos(k1*x[0]) * sin(m1*x[1]) * sin(omega*state.t)
-            f_ux = -A_f * m1/k1 * sin(k1*x[0]) * cos(m1*x[1]) * sin(omega*state.t)
-    else:
-        f_ux = 0.
-        f_uz = 0.
+        A_f = bprime/2.
+        f_uz = A_f * cos(k1*x[0]) * sin(m1*x[1]) * sin(omega*state.t)
+        f_ux = -A_f * m1/k1 * sin(k1*x[0]) * cos(m1*x[1]) * sin(omega*state.t)
+
     f_u = as_vector([f_ux,f_uz])
     forcing = IncompressibleForcing(state, extra_terms=f_u)
-else:
+
+if AddRandomForce == 1:
     forcing = RandomIncompressibleForcing(state)
+
+if (AddNonRandomForce == 0) and (AddRandomForce == 0):
+    forcing = IncompressibleForcing(state)
 
 
 ##############################################################################
