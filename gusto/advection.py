@@ -374,15 +374,16 @@ class Recoverer(object):
             # this restores the original DG0 function
             self.v_in_DG0 = Function(VDG).interpolate(v)
             self.v_back = Function(VDG)  # CG1 function interpolated back to DG0
-            self.v_boundary_DG0 = Function(self.VDG)  # the CG1 function on the boundary
+            self.v_boundary_DG1 = Function(self.VDG1)  # the CG1 function on the boundary
             self.v_boundary_CG1 = Function(self.V)
+            self.v_boundary_DG0 = Function(self.VDG)
             self.v_back_DG1 = Function(self.VDG1)
             psi = TestFunction(self.VDG)
             v_trial = TrialFunction(self.VDG)
             self.area = Function(self.VDG)
             test = TestFunction(self.VDG)
             assemble(test*dx, tensor=self.area)
-            L = psi * self.v_back_DG1 * sqrt(self.area)
+            L = psi * self.v_back
             a = psi * v_trial * dx
             if self.V.extruded:
                 L = L * (ds_b + ds_t + ds_v)
@@ -451,7 +452,7 @@ class Recoverer(object):
             self.v_boundary_CG1.dat.data[-1] = self.v_back.dat.data[-1]
 
             #print("CG_boundary", self.v_boundary_CG1.dat.data)
-            self.v_out.assign(self.v_out - 2 * self.v_boundary_CG1)
+            self.v_out.assign(self.v_out + 2 * self.v_boundary_CG1)
             #print("v_out", self.v_out.dat.data)
             
         return self.v_out
