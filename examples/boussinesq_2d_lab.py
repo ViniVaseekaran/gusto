@@ -7,6 +7,15 @@ from sympy.stats import Normal
 import sys
 
 
+#Define useful functions:
+def sliding_mean(f,Nx,Nz,wing):
+    data = np.zeros((Nx,Nz))
+    for jj in range(wing,Nz-wing):
+        for ii in range(wing,Nx-wing):
+            data[ii,jj] = np.mean(f[ii-wing:ii+wing,jj-wing:jj+wing])
+    return data
+
+
 # Programme control:
 #ParkRun = 14
 #ParkRun = 16
@@ -16,6 +25,7 @@ ICs = 1
 ICsSimpleWave = 0
 ICsGaussian = 0
 ICsRandom = 1
+FilterField = 0
 
 AddNonRandomForce = 0
 AddWaveForce = 1
@@ -24,14 +34,14 @@ AddRandomForce = 0
 
 MolecularDiffusion = 1
 EddyDiffusion = 0
-ScaleDiffusion = 0
+ScaleDiffusion = 1
 
 #Set some time control options:
 #dt = 1./20
 #dt = 0.01
 #dt = 0.005
 #dt = 0.0075
-dt = 0.001
+dt = 0.0015
 
 if '--running-tests' in sys.argv:
     tmax = dt
@@ -80,18 +90,17 @@ timestepping = TimesteppingParameters(dt=dt*subcycles)
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
 
-dumpfreq = int( 2/(dt*subcycles) )
+dumpfreq = int( 1/(dt*subcycles) )
 
-#points = np.array([[0.05,0.22]])
-points = np.array([[0.04,0.21]])
+points = np.array([[0.1,0.22]])
 #points_x = [0.05]
 #points_z = [0.22]
 #points = np.array([p for p in itertools.product(points_x, points_z)])
 
-#output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
-#perturbation_fields=['b'], point_data=[('b', points)], checkpoint=False)
 output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
-perturbation_fields=['b'], checkpoint=False)
+perturbation_fields=['b'], point_data=[('b', points)], checkpoint=True)
+#output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
+#perturbation_fields=['b'], checkpoint=False)
 
 
 # class containing physical parameters
@@ -180,7 +189,12 @@ if ICs == 1:
     if ICsRandom == 1:
         r = Function(b0.function_space()).assign(Constant(0.0))
         r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
-        b_pert = r*bprime*10
+        b_pert = r*bprime*20
+        
+        if FilterField == 1: 
+            wing = 3
+            b_pert = sliding_mean(b_pert,columns,nlayers,wing)
+
 else: b_pert = 0
 
 # interpolate the expression to the function:
@@ -298,7 +312,7 @@ diffused_fields = []
 diffused_fields.append(("u", InteriorPenalty(state, Vu, kappa=kappa_u,
                                            mu=Constant(10./delta) )))
 diffused_fields.append(("b", InteriorPenalty(state, Vb, kappa=kappa_b,
-                                             mu=Constant(10./delta) )))
+                                             mu=Constant(10./delta), bcs=bcs_b )))
 
 
 ##############################################################################
