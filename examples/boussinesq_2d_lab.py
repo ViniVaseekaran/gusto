@@ -188,7 +188,10 @@ if ICs == 1:
         #b_pert = sp.integrate( A_z1 * DiracDelta(x[1]-H/2), (x[1],0,H) )
     if ICsRandom == 1:
         r = Function(b0.function_space()).assign(Constant(0.0))
-        r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
+        #r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
+        RandomSample = np.loadtxt('./RandomSample.txt')
+        RandomSample = RandomSample/np.max(RandomSample)
+        r.dat.data[:] += np.resize(RandomSample,r.dof_dset.size)
         b_pert = r*bprime*20
         
         if FilterField == 1: 
