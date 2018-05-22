@@ -1,10 +1,12 @@
 from gusto import *
 from firedrake import PeriodicIntervalMesh, ExtrudedMesh, \
-    cos, sin, exp, pi, SpatialCoordinate, Constant, Function, as_vector, DirichletBC, VectorFunctionSpace, interpolate
+    cos, sin, exp, pi, SpatialCoordinate, Constant, Function, as_vector, DirichletBC, \
+    FunctionSpace, VectorFunctionSpace, interpolate
 import numpy as np
 import sympy as sp
 from sympy.stats import Normal
 import sys
+import matplotlib.pyplot as plt
 
 
 # Programme control:
@@ -187,16 +189,15 @@ if ICs == 1:
         RandomSample = RandomSample/np.max(RandomSample)
 
         #Get vector of coordinates:
-        W=VectorFunctionSpace(mesh, Vb.ufl_element())
-        X=interpolate(mesh.coordinates, W)
+        V_DG0 = FunctionSpace(mesh, "DG", 0)
+        W = VectorFunctionSpace(mesh, V_DG0.ufl_element())
+        X = interpolate(mesh.coordinates, W)
 
         def ExternalDataPoint(data, x, y, Nx, Nz, Lx, Lz):
             dx = Lx/Nx
-            xvec = np.arange(Nx)*dx
             dy = Lz/Nz
-            yvec = np.arange(Nz)*dy
-            i = np.where(xvec==x)
-            j = np.where(yvec==y)
+            i = int(x/dx)
+            j = int(y/dy)
             return data[i,j]
 
         def mydata(X):
@@ -205,9 +206,10 @@ if ICs == 1:
                 list_of_output_values.append(ExternalDataPoint(RandomSample, x, y, columns, nlayers, L, H))
             return list_of_output_values
 
+        b_pert_dg0 = Function(V_DG0)
+        b_pert_dg0.dat.data[:] = mydata(X.dat.data_ro)
         b_pert = Function(Vb)
-        b_pert.dat.data[:] = mydata(X.dat.data_ro)
-        #bprime = Function(V2).project(bprime_dg)
+        b_pert.interpolate(b_pert_dg0)
         
 else: b_pert = 0
 
@@ -247,7 +249,7 @@ advected_fields.append(("b", SSPRK3(state, b0, beqn, subcycles=subcycles)))
 ##############################################################################
 # Set up linear solver for the timestepping scheme
 ##############################################################################
-linear_solver = IncompressibleSolver(state, L)
+linear_solver = IncompressibleSolver(state)
 
 
 ##############################################################################
