@@ -1,19 +1,10 @@
 from gusto import *
 from firedrake import PeriodicIntervalMesh, ExtrudedMesh, \
-    cos, sin, exp, pi, SpatialCoordinate, Constant, Function, as_vector, DirichletBC
+    cos, sin, exp, pi, SpatialCoordinate, Constant, Function, as_vector, DirichletBC, VectorFunctionSpace, interpolate
 import numpy as np
 import sympy as sp
 from sympy.stats import Normal
 import sys
-
-
-#Define useful functions:
-def sliding_mean(f,Nx,Nz,wing):
-    data = np.zeros((Nx,Nz))
-    for jj in range(wing,Nz-wing):
-        for ii in range(wing,Nx-wing):
-            data[ii,jj] = np.mean(f[ii-wing:ii+wing,jj-wing:jj+wing])
-    return data
 
 
 # Programme control:
@@ -90,7 +81,7 @@ timestepping = TimesteppingParameters(dt=dt*subcycles)
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
 
-dumpfreq = int( 1/(dt*subcycles) )
+dumpfreq = int( 1./(dt*subcycles) )
 
 points = np.array([[0.1,0.22]])
 #points_x = [0.05]
@@ -187,17 +178,37 @@ if ICs == 1:
         #b_pert = sp.Piecewise( (0, x[1] < H/2-0.01), (0, x[1] > H/2+0.01), (A_z1, H/2-0.01 >= x[1] <= H/2+0.01, True) )
         #b_pert = sp.integrate( A_z1 * DiracDelta(x[1]-H/2), (x[1],0,H) )
     if ICsRandom == 1:
-        r = Function(b0.function_space()).assign(Constant(0.0))
+        #r = Function(b0.function_space()).assign(Constant(0.0))
         #r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
+        #b_pert = r*bprime*20
+
+        #Read in the random field:  
         RandomSample = np.loadtxt('./RandomSample.txt')
         RandomSample = RandomSample/np.max(RandomSample)
-        r.dat.data[:] += np.resize(RandomSample,r.dof_dset.size)
-        b_pert = r*bprime*20
-        
-        if FilterField == 1: 
-            wing = 3
-            b_pert = sliding_mean(b_pert,columns,nlayers,wing)
 
+        #Get vector of coordinates:
+        W=VectorFunctionSpace(mesh, Vb.ufl_element())
+        X=interpolate(mesh.coordinates, W)
+
+        def ExternalDataPoint(data, x, y, Nx, Nz, Lx, Lz):
+            dx = Lx/Nx
+            xvec = np.arange(Nx)*dx
+            dy = Lz/Nz
+            yvec = np.arange(Nz)*dy
+            i = np.where(xvec==x)
+            j = np.where(yvec==y)
+            return data[i,j]
+
+        def mydata(X):
+            list_of_output_values = []
+            for (x, y) in X:
+                list_of_output_values.append(ExternalDataPoint(RandomSample, x, y, columns, nlayers, L, H))
+            return list_of_output_values
+
+        b_pert = Function(Vb)
+        b_pert.dat.data[:] = mydata(X.dat.data_ro)
+        #bprime = Function(V2).project(bprime_dg)
+        
 else: b_pert = 0
 
 # interpolate the expression to the function:
