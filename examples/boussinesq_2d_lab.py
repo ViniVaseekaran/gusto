@@ -196,9 +196,7 @@ if ICs == 1:
         def ExternalDataPoint(data, x, y, Nx, Nz, Lx, Lz):
             dx = Lx/Nx
             dy = Lz/Nz
-            i = int(x/dx)
-            j = int(y/dy)
-            return data[i,j]
+            return data[int(x/dx),int(y/dy)]
 
         def mydata(X):
             list_of_output_values = []
