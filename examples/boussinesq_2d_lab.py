@@ -1,19 +1,12 @@
 from gusto import *
 from firedrake import PeriodicIntervalMesh, ExtrudedMesh, \
-    cos, sin, exp, pi, SpatialCoordinate, Constant, Function, as_vector, DirichletBC
+    cos, sin, exp, pi, SpatialCoordinate, Constant, Function, as_vector, DirichletBC, \
+    FunctionSpace, VectorFunctionSpace, interpolate
 import numpy as np
 import sympy as sp
 from sympy.stats import Normal
 import sys
-
-
-#Define useful functions:
-def sliding_mean(f,Nx,Nz,wing):
-    data = np.zeros((Nx,Nz))
-    for jj in range(wing,Nz-wing):
-        for ii in range(wing,Nx-wing):
-            data[ii,jj] = np.mean(f[ii-wing:ii+wing,jj-wing:jj+wing])
-    return data
+import matplotlib.pyplot as plt
 
 
 # Programme control:
@@ -90,7 +83,7 @@ timestepping = TimesteppingParameters(dt=dt*subcycles)
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
 
-dumpfreq = int( 1/(dt*subcycles) )
+dumpfreq = int( 1./(dt*subcycles) )
 
 points = np.array([[0.1,0.22]])
 #points_x = [0.05]
@@ -187,17 +180,35 @@ if ICs == 1:
         #b_pert = sp.Piecewise( (0, x[1] < H/2-0.01), (0, x[1] > H/2+0.01), (A_z1, H/2-0.01 >= x[1] <= H/2+0.01, True) )
         #b_pert = sp.integrate( A_z1 * DiracDelta(x[1]-H/2), (x[1],0,H) )
     if ICsRandom == 1:
-        r = Function(b0.function_space()).assign(Constant(0.0))
+        #r = Function(b0.function_space()).assign(Constant(0.0))
         #r.dat.data[:] += np.random.uniform(low=-1., high=1., size=r.dof_dset.size)
+        #b_pert = r*bprime*20
+
+        #Read in the random field:  
         RandomSample = np.loadtxt('./RandomSample.txt')
         RandomSample = RandomSample/np.max(RandomSample)
-        r.dat.data[:] += np.resize(RandomSample,r.dof_dset.size)
-        b_pert = r*bprime*20
-        
-        if FilterField == 1: 
-            wing = 3
-            b_pert = sliding_mean(b_pert,columns,nlayers,wing)
 
+        #Get vector of coordinates:
+        V_DG0 = FunctionSpace(mesh, "DG", 0)
+        W = VectorFunctionSpace(mesh, V_DG0.ufl_element())
+        X = interpolate(mesh.coordinates, W)
+
+        def ExternalDataPoint(data, x, y, Nx, Nz, Lx, Lz):
+            dx = Lx/Nx
+            dy = Lz/Nz
+            return data[int(x/dx),int(y/dy)]
+
+        def mydata(X):
+            list_of_output_values = []
+            for (x, y) in X:
+                list_of_output_values.append(ExternalDataPoint(RandomSample, x, y, columns, nlayers, L, H))
+            return list_of_output_values
+
+        b_pert_dg0 = Function(V_DG0)
+        b_pert_dg0.dat.data[:] = mydata(X.dat.data_ro)
+        b_pert = Function(Vb)
+        b_pert.interpolate(b_pert_dg0)
+        
 else: b_pert = 0
 
 # interpolate the expression to the function:
@@ -236,7 +247,7 @@ advected_fields.append(("b", SSPRK3(state, b0, beqn, subcycles=subcycles)))
 ##############################################################################
 # Set up linear solver for the timestepping scheme
 ##############################################################################
-linear_solver = IncompressibleSolver(state, L)
+linear_solver = IncompressibleSolver(state)
 
 
 ##############################################################################
