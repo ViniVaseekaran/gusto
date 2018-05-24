@@ -25,16 +25,17 @@ AddWaveForce = 1
 AddDedalusForce = 0
 AddRandomForce = 0
 
+AddDiffusion = 0
 MolecularDiffusion = 1
 EddyDiffusion = 0
-ScaleDiffusion = 1
+ScaleDiffusion = 0
 
 #Set some time control options:
 #dt = 1./20
 #dt = 0.01
 #dt = 0.005
 #dt = 0.0075
-dt = 0.0015
+dt = 0.002
 
 if '--running-tests' in sys.argv:
     tmax = dt
@@ -187,6 +188,7 @@ if ICs == 1:
         #Read in the random field:  
         RandomSample = np.loadtxt('./RandomSample.txt')
         RandomSample = RandomSample/np.max(RandomSample)
+        RandomSample = RandomSample*bprime
 
         #Get vector of coordinates:
         V_DG0 = FunctionSpace(mesh, "DG", 0)
@@ -196,9 +198,7 @@ if ICs == 1:
         def ExternalDataPoint(data, x, y, Nx, Nz, Lx, Lz):
             dx = Lx/Nx
             dy = Lz/Nz
-            i = int(x/dx)
-            j = int(y/dy)
-            return data[i,j]
+            return data[int(x/dx),int(y/dy)]
 
         def mydata(X):
             list_of_output_values = []
@@ -302,40 +302,43 @@ if (AddNonRandomForce == 0) and (AddRandomForce == 0):
 ##############################################################################
 #Set up diffusion scheme and any desired BCs
 ##############################################################################
-# mu is a numerical parameter
-# kappa is the diffusion constant for each variable
-# Note that molecular diffusion coefficients were taken from Lautrup, 2005:
-if MolecularDiffusion == 1:
-    kappa_u = 1.*10**(-6.)
-    kappa_b = 1.4*10**(-7.)
-if EddyDiffusion == 1:
-    kappa_u = 10.**(-2.)
-    kappa_b = 10.**(-2.)
-if ScaleDiffusion == 1:
-    DiffScaleFact_u = 10.
-    DiffScaleFact_b = 10.
-    kappa_u = kappa_u * DiffScaleFact_u
-    kappa_b = kappa_b * DiffScaleFact_b
+if AddDiffusion == 1:
+    # mu is a numerical parameter
+    # kappa is the diffusion constant for each variable
+    # Note that molecular diffusion coefficients were taken from Lautrup, 2005:
+    if MolecularDiffusion == 1:
+        kappa_u = 1.*10**(-6.)
+        kappa_b = 1.4*10**(-7.)
+    if EddyDiffusion == 1:
+        kappa_u = 10.**(-2.)
+        kappa_b = 10.**(-2.)
+    if ScaleDiffusion == 1:
+        DiffScaleFact_u = 10.
+        DiffScaleFact_b = 10.
+        kappa_u = kappa_u * DiffScaleFact_u
+        kappa_b = kappa_b * DiffScaleFact_b
 
-Vu = u0.function_space()
-Vb = state.spaces("HDiv_v")
-delta = L/columns		#Grid resolution (same in both directions).
+    Vu = u0.function_space()
+    Vb = state.spaces("HDiv_v")
+    delta = L/columns		#Grid resolution (same in both directions).
 
-bcs_u = [DirichletBC(Vu, 0.0, "bottom"), DirichletBC(Vu, 0.0, "top")]
-bcs_b = [DirichletBC(Vb, -N**2*H, "bottom"), DirichletBC(Vb, 0.0, "top")]
+    bcs_u = [DirichletBC(Vu, 0.0, "bottom"), DirichletBC(Vu, 0.0, "top")]
+    bcs_b = [DirichletBC(Vb, -N**2*H, "bottom"), DirichletBC(Vb, 0.0, "top")]
 
-diffused_fields = []
-diffused_fields.append(("u", InteriorPenalty(state, Vu, kappa=kappa_u,
+    diffused_fields = []
+    diffused_fields.append(("u", InteriorPenalty(state, Vu, kappa=kappa_u,
                                            mu=Constant(10./delta) )))
-diffused_fields.append(("b", InteriorPenalty(state, Vb, kappa=kappa_b,
+    diffused_fields.append(("b", InteriorPenalty(state, Vb, kappa=kappa_b,
                                              mu=Constant(10./delta), bcs=bcs_b )))
 
 
 ##############################################################################
 # build time stepper
 ##############################################################################
-#stepper = CrankNicolson(state, advected_fields, linear_solver, forcing)
-stepper = CrankNicolson(state, advected_fields, linear_solver, forcing, diffused_fields)
+if AddDiffusion == 1:
+    stepper = CrankNicolson(state, advected_fields, linear_solver, forcing, diffused_fields)
+else:
+    stepper = CrankNicolson(state, advected_fields, linear_solver, forcing)
 
 
 ##############################################################################
