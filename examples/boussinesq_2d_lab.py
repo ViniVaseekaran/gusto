@@ -25,8 +25,7 @@ AddWaveForce = 1
 AddDedalusForce = 0
 AddRandomForce = 0
 
-ZeroDiffusion = 1
-MolecularDiffusion = 0
+MolecularDiffusion = 1
 EddyDiffusion = 0
 ScaleDiffusion = 0
 
@@ -316,9 +315,6 @@ if ScaleDiffusion == 1:
     DiffScaleFact_b = 10.
     kappa_u = kappa_u * DiffScaleFact_u
     kappa_b = kappa_b * DiffScaleFact_b
-if ZeroDiffusion == 1:
-    kappa_u = 0
-    kappa_b = 0
 
 Vu = u0.function_space()
 Vb = state.spaces("HDiv_v")
