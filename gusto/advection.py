@@ -1,12 +1,14 @@
 from abc import ABCMeta, abstractmethod, abstractproperty
 from firedrake import Function, LinearVariationalProblem, \
     LinearVariationalSolver, Projector, Interpolator, TestFunction, TrialFunction, \
-    ds, ds_t, ds_b, ds_v, dx, assemble, sqrt
+    ds, ds_t, ds_b, ds_v, dx, assemble, sqrt, \
+    FunctionSpace, MixedFunctionSpace, TestFunctions, TrialFunctions, inner, grad, ds_tb, dS_v, dS_h, split, solve
 from firedrake.utils import cached_property
 from gusto.configuration import DEBUG
 from gusto.transport_equation import EmbeddedDGAdvection
 from firedrake import expression, function
 from firedrake.parloops import par_loop, READ, INC
+from firedrake.slate import slate
 import ufl
 import numpy as np
 
@@ -373,24 +375,7 @@ class Recoverer(object):
         if self.VDG is not None:
             # this restores the original DG0 function
             self.v_in_DG0 = Function(VDG).interpolate(v)
-            self.v_back = Function(VDG)  # CG1 function interpolated back to DG0
-            self.v_boundary_DG1 = Function(self.VDG1)  # the CG1 function on the boundary
-            self.v_boundary_CG1 = Function(self.V)
-            self.v_boundary_DG0 = Function(self.VDG)
-            self.v_back_DG1 = Function(self.VDG1)
-            psi = TestFunction(self.VDG)
-            v_trial = TrialFunction(self.VDG)
-            self.area = Function(self.VDG)
-            test = TestFunction(self.VDG)
-            assemble(test*dx, tensor=self.area)
-            L = psi * self.v_back
-            a = psi * v_trial * dx
-            if self.V.extruded:
-                L = L * (ds_b + ds_t + ds_v)
-            else:
-                L = L * ds
-            problem = LinearVariationalProblem(a, L, self.v_boundary_DG0)
-            self.boundary_solver = LinearVariationalSolver(problem)
+
 
         # Check the number of local dofs
         if self.v_out.function_space().finat_element.space_dimension() != self.v.function_space().finat_element.space_dimension():
@@ -433,26 +418,64 @@ class Recoverer(object):
 
         # do extra recovery
         if self.VDG is not None:
-            #print("CG1", self.v_out.dat.data)
-            #print("v_DG0", self.v_in_DG0.dat.data)
+            TraceSpace = FunctionSpace(self.VDG.mesh(), "DGT", 1) # is the degree right?
+            W = MixedFunctionSpace((self.V, self.VDG, TraceSpace))
+
+            rho, phi, psi = TrialFunctions(W) # or should we have a combined mixed trial function w?
+            alpha, beta, gamma = TestFunctions(W)
+
+            ds_in = dS_h + dS_v
+            ds_ex = ds_tb
+
+            left = (inner(grad(alpha), grad(rho)) * dx + alpha * phi * dx
+                    + alpha * psi * ds_in + beta * rho * dx
+                    + gamma('+') * rho * ds_in + gamma * psi * ds_ex)
+
+            right = beta * self.v * dx + gamma('+') * self.v_out * ds_in
             
-            # interpolate CG1 back to DG0
-            self.v_back.interpolate(self.v_out)
-            #print("v_back", self.v_back.dat.data)
-            self.v_back.interpolate(self.v_in_DG0 - self.v_out)
-            #print("v_back_subtracted", self.v_back.dat.data)
-            self.v_back_DG1.interpolate(self.v_back)
-            #print("v_back_DG1", self.v_back_DG1.dat.data)
-            self.boundary_solver.solve()
-            #print("boundary", self.v_boundary_DG0.dat.data)
+            Right = slate.Tensor(right)
+            Left = slate.Tensor(left)
 
-            # this definitely won't work in general!!
-            self.v_boundary_CG1.dat.zero()
-            self.v_boundary_CG1.dat.data[0] = self.v_back.dat.data[0]
-            self.v_boundary_CG1.dat.data[-1] = self.v_back.dat.data[-1]
+            # Left has the form
+            # | K  L M |
+            # | LT 0 0 |
+            # | MT 0 D |
 
-            #print("CG_boundary", self.v_boundary_CG1.dat.data)
-            self.v_out.assign(self.v_out + 2 * self.v_boundary_CG1)
-            #print("v_out", self.v_out.dat.data)
+            # write
+            # A = | K  L |  B = | M |  C = | MT 0 |  D = | D |
+            #     | LT 0 |      | 0 |
+            A = Left.block(((0, 1), (0, 1)))
+            B = Left.block(((0, 1), 2))
+            C = Left.block((2, (0, 1)))
+            D = Left.block((2, 2))
+            K = Left.block((0, 0))
+            L = Left.block((0, 1))
+            LT = Left.block((1, 0))
+            M = Left.block((0, 2))
+            MT = Left.block((2, 0))
+
+            # Right has the form
+            # |   0   |
+            # | Beta  |
+            # | Gamma |
+            E = Right.block(((0, 1),))
+            Beta = Right.block((1,))
+            Gamma = Right.block((2,))
+
+            # find solution
+            X = D - C * A.inv * B
+            Psi = -X.inv * (Gamma - C * A.inv * E)
+            Phi = (-LT * K.inv * L).inv * (Beta + LT * K.inv * M * Psi)
+            y = assemble(Psi)
+            print("Psi", y.dat.data)
+            y = assemble(Phi)
+            print("Phi", y.dat.data)
+            solution_expr = - K.inv * (L * Phi + M * Psi)
+
+            
+            print("recovered", self.v_out.dat.data)
+            solution = assemble(solution_expr)
+            self.v_out.assign(solution)
+            print("extra", self.v_out.dat.data)
             
         return self.v_out
