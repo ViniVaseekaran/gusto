@@ -21,7 +21,7 @@ ICsRandom = 1
 FilterField = 0
 
 AddNonRandomForce = 0
-AddWaveForce = 1
+AddWaveForce = 0
 AddDedalusForce = 0
 AddRandomForce = 0
 
@@ -34,14 +34,16 @@ ScaleDiffusion = 0
 #dt = 0.01
 #dt = 0.005
 #dt = 0.0075
-dt = 0.002
+dt = 0.001
 
 if '--running-tests' in sys.argv:
     tmax = dt
 else:
-    tmax = 48*60*60
+    tmax = 5*24*60*60
     #tmax = 1
- 
+
+CheckPoint = 0 
+
 
 ##############################################################################
 # set up mesh
@@ -327,7 +329,12 @@ diffused_fields = []
 diffused_fields.append(("u", InteriorPenalty(state, Vu, kappa=kappa_u,
                                            mu=Constant(10./delta) )))
 diffused_fields.append(("b", InteriorPenalty(state, Vb, kappa=kappa_b,
-                                           mu=Constant(10./delta), bcs=bcs_b )))
+                                           mu=Constant(10./delta) )))
+
+
+if CheckPoint == 1:
+    chkpt = DumbCheckpoint("chkpt.h5", mode=FILE_READ)
+    b = Function(Vb, name="b")
 
 
 ##############################################################################
