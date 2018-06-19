@@ -2,9 +2,10 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 from firedrake import Function, LinearVariationalProblem, \
     LinearVariationalSolver, Projector, Interpolator, TestFunction, TrialFunction, \
     ds, ds_t, ds_b, ds_v, dx, assemble, sqrt, \
-    FunctionSpace, MixedFunctionSpace, TestFunctions, TrialFunctions, inner, grad, ds_tb, dS_v, dS_h, split, solve, Constant, DirichletBC, as_vector
+    FunctionSpace, MixedFunctionSpace, TestFunctions, TrialFunctions, inner, grad, \
+    ds_tb, dS_v, dS_h, split, solve, Constant, DirichletBC, as_vector, FiniteElement, interval
 from firedrake.utils import cached_property
-from gusto.configuration import DEBUG
+from gusto.configuration import DEBUG, logger
 from gusto.transport_equation import EmbeddedDGAdvection
 from firedrake import expression, function
 from firedrake.parloops import par_loop, READ, INC
@@ -126,9 +127,9 @@ class Advection(object, metaclass=ABCMeta):
                 if self.boundary_method == 'density':
                     self.boundary_recoverer = Boundary_Recoverer(self.x_in, x_rec, x_rec_DG)
                 elif self.boundary_method == 'velocity':
-                    if field.function_space().value_size != 2:
+                    if fs.value_size != 2:
                         raise ValueError('This method only works for 2D vector functions.')
-                    state.logger.warning('This method should only be used with an RT0-type space in 2D')
+                    logger.warning('The velocity boundary method should only be used with an RT0-type space in 2D')
 
                     # need to make function spaces for horizontal component
                     cell = fs.mesh()._base_mesh.ufl_cell().cellname()
@@ -471,8 +472,7 @@ class Boundary_Recoverer(object):
         self.v0 = v0
         self.v1 = v1
         
-        VCG1 = v1.function_space()
-        VDG0 = FunctionSpace(v0.function_space().mesh(), "DG", 0)
+        VDG0 = FunctionSpace(v_out.function_space().mesh(), "DG", 0)
         VDG1 = v_out.function_space()
 
         # set boundary_field
@@ -525,7 +525,6 @@ class Boundary_Recoverer(object):
 
         # now make correction only apply to boundaries
         self.v_out.interpolate(self.boundary_field * self.v_out + self.interior_field * self.v1)
-        print("v_adjust", self.v_out.dat.data[:])
 
         return self.v_out
         
