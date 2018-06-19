@@ -1,16 +1,20 @@
 from abc import ABCMeta, abstractmethod, abstractproperty
 from firedrake import Function, LinearVariationalProblem, \
-    LinearVariationalSolver, Projector, Interpolator
+    LinearVariationalSolver, Projector, Interpolator, TestFunction, TrialFunction, \
+    ds, ds_t, ds_b, ds_v, dx, assemble, sqrt, \
+    FunctionSpace, MixedFunctionSpace, TestFunctions, TrialFunctions, inner, grad, \
+    ds_tb, dS_v, dS_h, split, solve, Constant, DirichletBC, as_vector, FiniteElement, interval
 from firedrake.utils import cached_property
-from gusto.configuration import DEBUG
+from gusto.configuration import DEBUG, logger
 from gusto.transport_equation import EmbeddedDGAdvection
 from firedrake import expression, function
 from firedrake.parloops import par_loop, READ, INC
+from firedrake.slate import slate
 import ufl
 import numpy as np
 
 
-__all__ = ["NoAdvection", "ForwardEuler", "SSPRK3", "ThetaMethod"]
+__all__ = ["NoAdvection", "ForwardEuler", "SSPRK3", "ThetaMethod", "Recoverer", "Boundary_Recoverer"]
 
 
 def embedded_dg(original_apply):
@@ -23,6 +27,8 @@ def embedded_dg(original_apply):
             def new_apply(self, x_in, x_out):
                 if self.recovered:
                     recovered_apply(self, x_in)
+                    original_apply(self, self.xdg_in, self.xdg_out)
+                    recovered_project(self)
                 else:
                     # try to interpolate to x_in but revert to projection
                     # if interpolation is not implemented for this
@@ -31,10 +37,7 @@ def embedded_dg(original_apply):
                         self.xdg_in.interpolate(x_in)
                     except NotImplementedError:
                         self.xdg_in.project(x_in)
-                original_apply(self, self.xdg_in, self.xdg_out)
-                if self.recovered:
-                    recovered_project(self)
-                else:
+                    original_apply(self, self.xdg_in, self.xdg_out)
                     self.Projector.project()
                 x_out.assign(self.x_projected)
             return new_apply(self, x_in, x_out)
@@ -97,25 +100,50 @@ class Advection(object, metaclass=ABCMeta):
             self.Projector = Projector(self.xdg_out, self.x_projected,
                                        solver_parameters=parameters)
             self.recovered = equation.recovered
+            self.boundary_method = equation.boundary_method
             if self.recovered:
                 # set up the necessary functions
                 self.x_in = Function(field.function_space())
                 x_adv = Function(fs)
                 x_rec = Function(equation.V_rec)
                 x_brok = Function(equation.V_brok)
+                x_rec_DG = Function(fs)
 
                 # set up interpolators and projectors
                 self.x_adv_interpolator = Interpolator(self.x_in, x_adv)  # interpolate before recovery
                 self.x_rec_projector = Recoverer(x_adv, x_rec)  # recovered function
                 # when the "average" method comes into firedrake master, this will be
                 # self.x_rec_projector = Projector(self.x_in, equation.Vrec, method="average")
-                self.x_brok_projector = Projector(x_rec, x_brok)  # function projected back
-                self.xdg_interpolator = Interpolator(self.x_in + x_rec - x_brok, self.xdg_in)
+                self.x_brok_projector = Projector(x_rec_DG, x_brok)  # function projected back
                 if self.limiter is not None:
                     self.x_brok_interpolator = Interpolator(self.xdg_out, x_brok)
                     self.x_out_projector = Recoverer(x_brok, self.x_projected)
                     # when the "average" method comes into firedrake master, this will be
                     # self.x_out_projector = Projector(x_brok, self.x_projected, method="average")
+                self.x_rec_interpolator = Interpolator(x_rec, x_rec_DG)
+                self.xdg_interpolator = Interpolator(self.x_in + x_rec_DG - x_brok, self.xdg_in)
+
+                # set up things for boundary recovery
+                if self.boundary_method == 'density':
+                    self.boundary_recoverer = Boundary_Recoverer(self.x_in, x_rec, x_rec_DG)
+                elif self.boundary_method == 'velocity':
+                    if fs.value_size != 2:
+                        raise ValueError('This method only works for 2D vector functions.')
+                    logger.warning('The velocity boundary method should only be used with an RT0-type space in 2D')
+
+                    # need to make function spaces for horizontal component
+                    cell = fs.mesh()._base_mesh.ufl_cell().cellname()
+                    u_hori = FiniteElement("CG", cell, 1)
+                    u_vert = FiniteElement("DG", interval, 0)
+
+                    VDG1 = FunctionSpace(fs.mesh(), "DG", 1)
+                    x_DG = Function(VDG1)
+                    self.boundary_recoverer = Boundary_Recoverer(self.x_in[0], x_rec[0], x_DG)
+                    self.vector_project = Projector(as_vector([x_DG, x_rec_DG[1]]), x_rec_DG)
+                elif self.boundary_method is not None:
+                    raise ValueError('Your boundary method has not been recognised.')
+                
+               
         else:
             self.embedded_dg = False
             fs = field.function_space()
@@ -345,6 +373,12 @@ def recovered_apply(self, x_in):
     self.x_in.assign(x_in)
     self.x_adv_interpolator.interpolate()
     self.x_rec_projector.project()
+    self.x_rec_interpolator.interpolate()
+    if self.boundary_method == 'density':
+        self.boundary_recoverer.apply()
+    elif self.boundary_method == 'velocity':
+        self.boundary_recoverer.apply()
+        self.vector_project.project()
     self.x_brok_projector.project()
     self.xdg_interpolator.interpolate()
 
@@ -426,4 +460,73 @@ class Recoverer(object):
         par_loop(self._average_kernel, ufl.dx, {"vo": (self.v_out, INC),
                                                 "w": (self._weighting, READ),
                                                 "v": (self.v, READ)})
+
         return self.v_out
+
+
+class Boundary_Recoverer(object):
+
+    def __init__(self, v0, v1, v_out):
+
+        self.v_out = v_out
+        self.v0 = v0
+        self.v1 = v1
+        
+        VDG0 = FunctionSpace(v_out.function_space().mesh(), "DG", 0)
+        VDG1 = v_out.function_space()
+
+        # set boundary_field
+        self.interior_field = Function(VDG1)
+        self.boundary_field = Function(VDG1)
+
+        # make field that is 1 on boundaries and 0 everywhere else
+        bc_top = DirichletBC(VDG1, Constant(1.0), 'top', method='geometric')
+        bc_bottom = DirichletBC(VDG1, Constant(1.0), 'bottom', method='geometric')
+        bc_top.apply(self.boundary_field)
+        bc_bottom.apply(self.boundary_field)
+        ones = Function(VDG1).project(Constant(1.0))
+        self.interior_field.interpolate(ones - self.boundary_field)
+
+
+        TraceSpace = FunctionSpace(VDG0.mesh(), "DGT", 1) # is the degree right?
+        W = MixedFunctionSpace((VDG1, VDG0, TraceSpace))
+
+        rho, phi, psi = TrialFunctions(W) # or should we have a combined mixed trial function w?
+        alpha, beta, gamma = TestFunctions(W)
+
+        ds_in = dS_h
+        ds_ex = ds_tb + dS_v + ds_v
+
+        left = (inner(grad(alpha), grad(rho)) * dx + alpha * phi * dx
+                + alpha * psi('+') * ds_in + beta * rho * dx
+                + gamma('+') * rho * ds_in + gamma * psi * ds_ex)
+
+        right = beta * self.v0 * dx + gamma('+') * self.v1 * ds_in
+            
+        Right = slate.Tensor(right)
+        Left = slate.Tensor(left)
+
+        mass_form = alpha * rho * dx
+            
+        Mass = slate.Tensor(mass_form)
+        mass_vector = Mass.block((0, (0, 1, 2)))
+        mass = Mass.block((0, 0))
+
+        self.solution_expr = mass.inv * mass_vector * Left.inv * Right
+
+
+    def apply(self):
+
+        solution = assemble(self.solution_expr)
+        self.v_out.assign(solution)
+        
+        # we must change nans to 0
+        self.v_out.dat.data[:] = np.nan_to_num(self.v_out.dat.data[:])
+
+        # now make correction only apply to boundaries
+        self.v_out.interpolate(self.boundary_field * self.v_out + self.interior_field * self.v1)
+
+        return self.v_out
+        
+            
+        
