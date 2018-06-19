@@ -114,7 +114,7 @@ class Advection(object, metaclass=ABCMeta):
                 self.x_rec_projector = Recoverer(x_adv, x_rec)  # recovered function
                 # when the "average" method comes into firedrake master, this will be
                 # self.x_rec_projector = Projector(self.x_in, equation.Vrec, method="average")
-                self.x_brok_projector = Projector(x_rec, x_brok)  # function projected back
+                self.x_brok_projector = Projector(x_rec_DG, x_brok)  # function projected back
                 if self.limiter is not None:
                     self.x_brok_interpolator = Interpolator(self.xdg_out, x_brok)
                     self.x_out_projector = Recoverer(x_brok, self.x_projected)
@@ -374,12 +374,12 @@ def recovered_apply(self, x_in):
     self.x_adv_interpolator.interpolate()
     self.x_rec_projector.project()
     self.x_rec_interpolator.interpolate()
-    self.x_brok_projector.project()
     if self.boundary_method == 'density':
         self.boundary_recoverer.apply()
     elif self.boundary_method == 'velocity':
         self.boundary_recoverer.apply()
         self.vector_project.project()
+    self.x_brok_projector.project()
     self.xdg_interpolator.interpolate()
 
 
