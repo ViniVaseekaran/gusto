@@ -114,18 +114,18 @@ class Advection(object, metaclass=ABCMeta):
                 self.x_rec_projector = Recoverer(x_adv, x_rec)  # recovered function
                 # when the "average" method comes into firedrake master, this will be
                 # self.x_rec_projector = Projector(self.x_in, equation.Vrec, method="average")
-                self.x_brok_projector = Projector(x_rec_DG, x_brok)  # function projected back
+                self.x_brok_projector = Projector(x_rec, x_brok)  # function projected back
                 if self.limiter is not None:
                     self.x_brok_interpolator = Interpolator(self.xdg_out, x_brok)
                     self.x_out_projector = Recoverer(x_brok, self.x_projected)
                     # when the "average" method comes into firedrake master, this will be
                     # self.x_out_projector = Projector(x_brok, self.x_projected, method="average")
-                self.x_rec_interpolator = Interpolator(x_rec, x_rec_DG)
-                self.xdg_interpolator = Interpolator(self.x_in + x_rec_DG - x_brok, self.xdg_in)
+                self.xdg_interpolator = Interpolator(self.x_in + x_rec - x_brok, self.xdg_in)
 
                 # set up things for boundary recovery
                 if self.boundary_method == 'density':
-                    self.boundary_recoverer = Boundary_Recoverer(self.x_in, x_rec, x_rec_DG)
+                    self.boundary_recoverer = Boundary_Recoverer(self.x_in, x_rec, x_adv)
+                    self.extra_recoverer = Recoverer(x_adv, x_rec)
                 elif self.boundary_method == 'velocity':
                     if fs.value_size != 2:
                         raise ValueError('This method only works for 2D vector functions.')
@@ -137,9 +137,12 @@ class Advection(object, metaclass=ABCMeta):
                     u_vert = FiniteElement("DG", interval, 0)
 
                     VDG1 = FunctionSpace(fs.mesh(), "DG", 1)
+                    VCG1 = FunctionSpace(fs.mesh(), "CG", 1)
                     x_DG = Function(VDG1)
+                    x_CG = Function(VCG1)
                     self.boundary_recoverer = Boundary_Recoverer(self.x_in[0], x_rec[0], x_DG)
-                    self.vector_project = Projector(as_vector([x_DG, x_rec_DG[1]]), x_rec_DG)
+                    self.extra_recoverer = Recoverer(x_DG, x_CG)
+                    self.vector_project = Projector(as_vector([x_CG, x_rec[1]]), x_rec)
                 elif self.boundary_method is not None:
                     raise ValueError('Your boundary method has not been recognised.')
                 
@@ -373,11 +376,12 @@ def recovered_apply(self, x_in):
     self.x_in.assign(x_in)
     self.x_adv_interpolator.interpolate()
     self.x_rec_projector.project()
-    self.x_rec_interpolator.interpolate()
     if self.boundary_method == 'density':
         self.boundary_recoverer.apply()
+        self.extra_recoverer.project()
     elif self.boundary_method == 'velocity':
         self.boundary_recoverer.apply()
+        self.extra_recoverer.project()
         self.vector_project.project()
     self.x_brok_projector.project()
     self.xdg_interpolator.interpolate()
