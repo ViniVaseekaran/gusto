@@ -25,10 +25,10 @@ AddWaveForce = 0
 AddDedalusForce = 0
 AddRandomForce = 0
 
-ZeroDiffusion = 1
-MolecularDiffusion = 0
+ZeroDiffusion = 0
+MolecularDiffusion = 1
 EddyDiffusion = 0
-ScaleDiffusion = 0
+ScaleDiffusion = 1
 
 #Set some time control options:
 #dt = 1./20
@@ -50,14 +50,15 @@ CheckPoint = 0
 # set up mesh
 ##############################################################################
 # Construct 1d periodic base mesh for idealised lab experiment of Park et al. (1994)
-#columns = 40  # number of columns
+factor = 4
 columns = 80
+columns = columns*factor
 L = 0.2
 m = PeriodicIntervalMesh(columns, L)
 
 # build 2D mesh by extruding the base mesh
-#nlayers = 90  # horizontal layers
 nlayers = 180
+nlayers = nlayers*factor
 H = 0.45  # Height position of the model top
 mesh = ExtrudedMesh(m, layers=nlayers, layer_height=H/nlayers)
 
@@ -78,25 +79,27 @@ fieldlist = ['u', 'p', 'b']
 # class containing timestepping parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
-subcycles = 4
-timestepping = TimesteppingParameters(dt=dt*subcycles)
+#subcycles = 4
+#timestepping = TimesteppingParameters(dt=dt*subcycles)
+timestepping = TimesteppingParameters(dt=dt)
 
 
 # class containing output parameters
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
 
-dumpfreq = int( 1./(dt*subcycles) )
+#dumpfreq = int( 1./(dt*subcycles) )
+dumpfreq = int( 1./dt )
 
 points = np.array([[0.1,0.22]])
 #points_x = [0.05]
 #points_z = [0.22]
 #points = np.array([p for p in itertools.product(points_x, points_z)])
 
-output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
-perturbation_fields=['b'], point_data=[('b', points)], checkpoint=True)
 #output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
-#perturbation_fields=['b'], checkpoint=False)
+#perturbation_fields=['b'], point_data=[('b', points)], checkpoint=CheckPoint)
+output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
+perturbation_fields=['b'], checkpoint=CheckPoint)
 
 
 # class containing physical parameters
@@ -188,7 +191,8 @@ if ICsNon0 == 1:
         #b_pert = r*bprime*20
 
         #Read in the random field:  
-        RandomSample = np.loadtxt('./RandomSample.txt')
+        #RandomSample = np.loadtxt('./RandomSample_80_180.txt')
+        RandomSample = np.loadtxt('./RandomSample_320_720.txt')
         RandomSample = RandomSample/np.max(RandomSample)
         RandomSample = RandomSample*bprime*10
 
@@ -242,10 +246,10 @@ else:
     beqn = EmbeddedDGAdvection(state, Vb,
                                equation_form="advective")
 advected_fields = []
-#advected_fields.append(("u", ThetaMethod(state, u0, ueqn)))
-#advected_fields.append(("b", SSPRK3(state, b0, beqn)))
-advected_fields.append(("u", SSPRK3(state, u0, ueqn, subcycles=subcycles)))
-advected_fields.append(("b", SSPRK3(state, b0, beqn, subcycles=subcycles)))
+advected_fields.append(("u", ThetaMethod(state, u0, ueqn)))
+advected_fields.append(("b", SSPRK3(state, b0, beqn)))
+#advected_fields.append(("u", SSPRK3(state, u0, ueqn, subcycles=subcycles)))
+#advected_fields.append(("b", SSPRK3(state, b0, beqn, subcycles=subcycles)))
 
 
 ##############################################################################
@@ -331,7 +335,7 @@ if ZeroDiffusion != 1:
     diffused_fields.append(("u", InteriorPenalty(state, Vu, kappa=kappa_u,
                                            mu=Constant(10./delta) )))
     diffused_fields.append(("b", InteriorPenalty(state, Vb, kappa=kappa_b,
-                                           mu=Constant(10./delta) )))
+                                           mu=Constant(10./delta),bcs=bcs_b )))
 
 
 if CheckPoint == 1:
@@ -342,6 +346,8 @@ if CheckPoint == 1:
 ##############################################################################
 # build time stepper
 ##############################################################################
+
+
 if ZeroDiffusion == 1:
     stepper = CrankNicolson(state, advected_fields, linear_solver, forcing)
 else:
