@@ -3,7 +3,7 @@ from firedrake import split, LinearVariationalProblem, \
     TestFunction, TrialFunction, lhs, rhs, DirichletBC, FacetNormal, \
     div, dx, jump, avg, dS_v, dS_h, ds_v, ds_t, ds_b, inner, dot, grad, \
     Function, VectorSpaceBasis, BrokenElement, FunctionSpace, MixedFunctionSpace, \
-    assemble, LinearSolver, Tensor, AssembledVector
+    assemble, LinearSolver, Tensor, AssembledVector, Constant
 from firedrake.solving_utils import flatten_parameters
 from firedrake.parloops import par_loop, READ, INC
 from pyop2.profiling import timed_function, timed_region
@@ -118,8 +118,8 @@ class CompressibleSolver(TimesteppingSolver):
     def _setup_solver(self):
         state = self.state      # just cutting down line length a bit
         dt = state.timestepping.dt
-        beta = dt*state.timestepping.alpha
-        cp = state.parameters.cp
+        beta = Constant(dt*state.timestepping.alpha)
+        cp = Constant(state.parameters.cp)
         mu = state.mu
         Vu = state.spaces("HDiv")
         Vtheta = state.spaces("HDiv_v")
@@ -318,8 +318,8 @@ class HybridizedCompressibleSolver(TimesteppingSolver):
 
         state = self.state
         dt = state.timestepping.dt
-        beta = dt*state.timestepping.alpha
-        cp = state.parameters.cp
+        beta = Constant(dt*state.timestepping.alpha)
+        cp = Constant(state.parameters.cp)
         mu = state.mu
         Vu = state.spaces("HDiv")
         Vu_broken = FunctionSpace(state.mesh, BrokenElement(Vu.ufl_element()))
@@ -626,7 +626,7 @@ class IncompressibleSolver(TimesteppingSolver):
     def _setup_solver(self):
         state = self.state      # just cutting down line length a bit
         dt = state.timestepping.dt
-        beta = dt*state.timestepping.alpha
+        beta = Constant(dt*state.timestepping.alpha)
         mu = state.mu
         Vu = state.spaces("HDiv")
         Vb = state.spaces("HDiv_v")
@@ -741,9 +741,9 @@ class ShallowWaterSolver(TimesteppingSolver):
     @timed_function("Gusto:SolverSetup")
     def _setup_solver(self):
         state = self.state
-        H = state.parameters.H
-        g = state.parameters.g
-        beta = state.timestepping.dt*state.timestepping.alpha
+        H = Constant(state.parameters.H)
+        g = Constant(state.parameters.g)
+        beta = Constant(state.timestepping.dt*state.timestepping.alpha)
 
         # Split up the rhs vector (symbolically)
         u_in, D_in = split(state.xrhs)
