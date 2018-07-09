@@ -90,47 +90,17 @@ class BaseTimestepper(object, metaclass=ABCMeta):
 
         state = self.state
         dt = state.timestepping.dt
-
-        #Grid parameters:
-        Nx = 80
-        Nz = 180
-        L = 0.2
-        H = 0.45
-        dx = L/Nx
-        dz = H/Nz
-
-        #CFL parameters
-        CourantLimit = 0.3
-        maxDt = 0.1
-
-        #Write timestep to file:
-        w2f_dt = 1
-        if (w2f_dt == 1) and (np.float_(state.t) == 0):
-            fileDt = open("results/tmp/dt.txt","w")
-            WriteDt = 0.1
-            NextWriteT = 0.
  
         while t < tmax - 0.5*dt:
             logger.info("at start of timestep, t=%s, dt=%s" % (t, dt))
 
-            u = state.fields("u") 
-            u = u.dat.data
-            maxFreq = np.max( u[0]/dx + u[1]/dz )
-            if maxFreq != 0:
-                dt = CourantLimit/maxFreq
-                dt = min(dt,maxDt)
-            else: dt = dt
-            #The variable dt here is a max dt based on CFL. 
-            #This variable dt could be scaled to create a safety margin.
-
-            #Write timestep to file:
-            if (w2f_dt == 1) and (np.float_(state.t) >= NextWriteT):
-                fileDt.write(str(time.time()) + ', ' + str(np.float_(state.t)) + ', ' + str(dt) + '\n')
-                fileDt.flush()
-                os.fsync(fileDt.fileno())
-                NextWriteT += WriteDt
-
-            #if (state.t == tmax): fileDt.close()
+            if state.timestepping.adaptive:
+                Courant = state.fields("CourantNumber")
+                maxCourant = Courant.dat.data.max()
+                maxFreq = maxCourant/dt
+                if maxFreq != 0:
+                    dt = state.timestepping.CourantLimit/maxFreq
+                    dt = min(dt,state.timestepping.maxDt)
 
             t += dt
             state.t.assign(t)
