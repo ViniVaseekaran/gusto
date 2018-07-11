@@ -50,7 +50,7 @@ CheckPoint = 0
 # set up mesh
 ##############################################################################
 # Construct 1d periodic base mesh for idealised lab experiment of Park et al. (1994)
-factor = 4
+factor = 1
 columns = 80
 columns = columns*factor
 L = 0.2
@@ -81,7 +81,7 @@ fieldlist = ['u', 'p', 'b']
 # and documented in configuration.py
 #subcycles = 4
 #timestepping = TimesteppingParameters(dt=dt*subcycles)
-timestepping = TimesteppingParameters(dt=dt, adaptive=True, CourantLimit=0.2, maxDt=0.1)
+timestepping = TimesteppingParameters(dt=dt, adaptive=True, CourantLimit=0.3, maxDt=0.1)
 
 # class containing output parameters
 # all values not explicitly set here use the default values provided
@@ -98,7 +98,7 @@ points = np.array([[0.1,0.22]])
 #output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
 #perturbation_fields=['b'], point_data=[('b', points)], checkpoint=CheckPoint)
 output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
-perturbation_fields=['b'], checkpoint=CheckPoint)
+perturbation_fields=['b'], checkpoint=CheckPoint, timestepping=True)
 
 
 # class containing physical parameters
@@ -190,8 +190,8 @@ if ICsNon0 == 1:
         #b_pert = r*bprime*20
 
         #Read in the random field:  
-        #RandomSample = np.loadtxt('./RandomSample_80_180.txt')
-        RandomSample = np.loadtxt('./RandomSample_320_720.txt')
+        RandomSample = np.loadtxt('./RandomSample_080_180_1.txt')
+        #RandomSample = np.loadtxt('./RandomSample_320_720.txt')
         RandomSample = RandomSample/np.max(RandomSample)
         RandomSample = RandomSample*bprime*10
 
