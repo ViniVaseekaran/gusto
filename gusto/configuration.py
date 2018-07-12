@@ -46,9 +46,10 @@ class TimesteppingParameters(Configuration):
     maxk = 4
     maxi = 1
     adaptive = False
-    CourantLimit = None
-    maxDt = None
+    CourantLimit = 1
+    maxDt = 1
     maxFracIncreaseDt = 0
+
 
 class OutputParameters(Configuration):
 
@@ -77,6 +78,7 @@ class OutputParameters(Configuration):
     point_data = []
     # Switch to write adaptive timestepping information to diagnostics.py
     timestepping = False
+
 
 class CompressibleParameters(Configuration):
 
