@@ -81,7 +81,7 @@ fieldlist = ['u', 'p', 'b']
 # and documented in configuration.py
 #subcycles = 4
 #timestepping = TimesteppingParameters(dt=dt*subcycles)
-timestepping = TimesteppingParameters(dt=dt, adaptive=True, CourantLimit=0.3, maxDt=0.1, maxFracIncreaseDt=0.005)
+timestepping = TimesteppingParameters(dt=dt, adaptive=True, CourantLimit=0.1, maxDt=0.1, maxFracIncreaseDt=0.01)
 
 # class containing output parameters
 # all values not explicitly set here use the default values provided
