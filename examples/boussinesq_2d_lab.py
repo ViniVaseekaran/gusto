@@ -87,9 +87,6 @@ timestepping = TimesteppingParameters(dt=dt, adaptive=True, CourantLimit=0.1, ma
 # all values not explicitly set here use the default values provided
 # and documented in configuration.py
 
-#dumpfreq = int( 1./(dt*subcycles) )
-dumpfreq = int( 1./dt )
-
 points = np.array([[0.1,0.22]])
 #points_x = [0.05]
 #points_z = [0.22]
@@ -97,7 +94,7 @@ points = np.array([[0.1,0.22]])
 
 #output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
 #perturbation_fields=['b'], point_data=[('b', points)], checkpoint=CheckPoint)
-output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
+output = OutputParameters(dirname='tmp', dumpfreq_method = "time", dumpfreq=0.1, dumplist=['u','b'], 
 perturbation_fields=['b'], checkpoint=CheckPoint, timestepping=True)
 
 
