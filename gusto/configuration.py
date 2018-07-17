@@ -64,6 +64,7 @@ class OutputParameters(Configuration):
     dumpfreq_method = "nsteps"
     # Set dumpfreq value using chosen method set by dumpfreq_method:
     dumpfreq = 1
+    dump_interval_t = 1
     nextDumpT = 0
     dumplist = None
     dumplist_latlon = []
