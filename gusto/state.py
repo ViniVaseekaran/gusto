@@ -140,7 +140,7 @@ class DiagnosticsOutput(object):
 
             if timestepping:
                 group = dataset.createGroup("timestepping")
-                timestepping_vars = ["dt", "solver_t", "walltime", "nextDumpT"]
+                timestepping_vars = ["dt", "nextDumpT", "solver_t", "walltime"]
                 for name in timestepping_vars:
                     group.createVariable(name, np.float64, ("time", ))
 
@@ -165,12 +165,12 @@ class DiagnosticsOutput(object):
                 group = dataset.groups["timestepping"]
                 var = group.variables["dt"]
                 var[idx:idx + 1] = state.timestepping.dt
+                var = group.variables["nextDumpT"]
+                var[idx:idx + 1] = state.output.nextDumpT
                 var = group.variables["solver_t"]
                 var[idx:idx + 1] = t
                 var = group.variables["walltime"]
                 var[idx:idx + 1] = time.time()
-                var = group.variables["nextDumpT"]
-                var[idx:idx + 1] = state.output.nextDumpT
 
 
 class State(object):
@@ -390,9 +390,9 @@ class State(object):
                 raise NotImplementedError("Must set checkpoint True if pickup")
         else:
 
-            if self.output.dumpfreq_method == "nsteps": 
+            if self.output.dumpfreq_method == "nsteps":
                 dump = next(self.dumpcount) % self.output.dumpfreq == 0
-            if self.output.dumpfreq_method == "time":  
+            if self.output.dumpfreq_method == "time":
                 dump = t >= self.output.nextDumpT
 
             if dump:
