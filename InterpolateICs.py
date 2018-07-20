@@ -12,7 +12,7 @@ import pdb
 #Program control:
 #Model grid points are not exactly the same due to different bases:
 AegirGrid = 1
-meshFactor = 2
+meshFactor = 4
 DedalusGrid = 0
 GustoGrid = 0
 
@@ -158,6 +158,7 @@ if MakePlot == 1:
 
 
 if w2f == 1:
-    fnm_ICs = './RandomSample_interp_160_360.txt'
-    #fnm_ICs = './RandomSample_interp_320_720.txt'
+    if meshFactor==2: fnm_ICs = './RandomSample_interp_160_360.txt'
+    if meshFactor==4: fnm_ICs = './RandomSample_interp_320_720.txt'
+    if meshFactor==8: fnm_ICs = './RandomSample_interp_640_1440.txt'
     np.savetxt(fnm_ICs,randArrOut)
