@@ -158,7 +158,7 @@ if MakePlot == 1:
 
 
 if w2f == 1:
-    if meshFactor==2: fnm_ICs = './RandomSample_interp_160_360.txt'
-    if meshFactor==4: fnm_ICs = './RandomSample_interp_320_720.txt'
-    if meshFactor==8: fnm_ICs = './RandomSample_interp_640_1440.txt'
+    if meshFactor==2: fnm_ICs = './RandomSample_160_360.txt'
+    if meshFactor==4: fnm_ICs = './RandomSample_320_720.txt'
+    if meshFactor==8: fnm_ICs = './RandomSample_640_1440.txt'
     np.savetxt(fnm_ICs,randArrOut)
