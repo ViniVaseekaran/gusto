@@ -140,7 +140,7 @@ class DiagnosticsOutput(object):
 
             if timestepping:
                 group = dataset.createGroup("timestepping")
-                timestepping_vars = ["dt", "solver_t", "walltime"]
+                timestepping_vars = ["dt", "nextDumpT", "solver_t", "walltime"]
                 for name in timestepping_vars:
                     group.createVariable(name, np.float64, ("time", ))
 
@@ -165,8 +165,10 @@ class DiagnosticsOutput(object):
                 group = dataset.groups["timestepping"]
                 var = group.variables["dt"]
                 var[idx:idx + 1] = state.timestepping.dt
+                var = group.variables["nextDumpT"]
+                var[idx:idx + 1] = state.output.nextDumpT
                 var = group.variables["solver_t"]
-                var[idx:idx + 1] = state.t
+                var[idx:idx + 1] = t
                 var = group.variables["walltime"]
                 var[idx:idx + 1] = time.time()
 
@@ -388,31 +390,40 @@ class State(object):
                 raise NotImplementedError("Must set checkpoint True if pickup")
         else:
 
-            if self.output.dump_diagnostics:
-                # Compute diagnostic fields
-                for field in self.diagnostic_fields:
-                    field(self)
+            if self.output.dumpfreq_method == "nsteps":
+                dump = next(self.dumpcount) % self.output.dumpfreq == 0
+            if self.output.dumpfreq_method == "time":
+                dump = t >= self.output.nextDumpT
 
-                # Output diagnostic data
-                self.diagnostic_output.dump(self, t, self.output.timestepping)
+            if dump:
 
-            if len(self.output.point_data) > 0:
-                # Output pointwise data
-                self.pointdata_output.dump(self.fields, t)
+                if self.output.dump_diagnostics:
+                    # Compute diagnostic fields
+                    for field in self.diagnostic_fields:
+                        field(self)
 
-            # Dump all the fields to the checkpointing file (backup version)
-            if self.output.checkpoint:
-                for field in self.to_pickup:
-                    self.chkpt.store(field)
-                self.chkpt.write_attribute("/", "time", t)
+                    # Output diagnostic data
+                    self.diagnostic_output.dump(self, t, self.output.timestepping)
 
-            if (next(self.dumpcount) % self.output.dumpfreq) == 0:
+                if len(self.output.point_data) > 0:
+                    # Output pointwise data
+                    self.pointdata_output.dump(self.fields, t)
+
+                # Dump all the fields to the checkpointing file (backup version)
+                if self.output.checkpoint:
+                    for field in self.to_pickup:
+                        self.chkpt.store(field)
+                    self.chkpt.write_attribute("/", "time", t)
+
                 # dump fields
                 self.dumpfile.write(*self.to_dump)
 
                 # dump fields on latlon mesh
                 if len(self.output.dumplist_latlon) > 0:
                     self.dumpfile_ll.write(*self.to_dump_latlon)
+
+                if self.output.dumpfreq_method == "time":
+                    self.output.nextDumpT += self.output.dumpfreq
 
         return t
 
