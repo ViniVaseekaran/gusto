@@ -43,14 +43,12 @@ else:
     tmax = 5*24*60*60
     #tmax = 1
 
-CheckPoint = False 
-
 
 ##############################################################################
 # set up mesh
 ##############################################################################
 # Construct 1d periodic base mesh for idealised lab experiment of Park et al. (1994)
-factor = 1
+factor = 2
 columns = 80
 columns = columns*factor
 L = 0.2
@@ -81,7 +79,7 @@ fieldlist = ['u', 'p', 'b']
 # and documented in configuration.py
 #subcycles = 4
 #timestepping = TimesteppingParameters(dt=dt*subcycles)
-timestepping = TimesteppingParameters(dt=dt, adaptive=True, CourantLimit=0.20, maxDt=0.1, maxFracIncreaseDt=0.01)
+timestepping = TimesteppingParameters(dt=dt, adaptive=True, CourantLimit=0.20, maxDt=0.1, maxFracIncreaseDt=0.001)
 
 # class containing output parameters
 # all values not explicitly set here use the default values provided
@@ -94,8 +92,8 @@ points = np.array([[0.1,0.22]])
 
 #output = OutputParameters(dirname='tmp', dumpfreq=dumpfreq, dumplist=['u','b'], 
 #perturbation_fields=['b'], point_data=[('b', points)], checkpoint=CheckPoint)
-output = OutputParameters(dirname='tmp', dumpfreq_method = "time", dumpfreq=0.01, dumplist=['u','b'], 
-perturbation_fields=['b'], checkpoint=CheckPoint, timestepping=True)
+output = OutputParameters(dirname='tmp', dumpfreq_method = "time", dumpfreq=1., dumplist=['u','b'], 
+perturbation_fields=['b'], checkpoint=False, timestepping=True)
 
 
 # class containing physical parameters
@@ -187,8 +185,8 @@ if ICsNon0 == 1:
         #b_pert = r*bprime*20
 
         #Read in the random field:  
-        RandomSample = np.loadtxt('./RandomSample_080_180_1.txt')
-        #RandomSample = np.loadtxt('./RandomSample_320_720.txt')
+        #RandomSample = np.loadtxt('./RandomSample_080_180_1.txt')
+        RandomSample = np.loadtxt('./RandomSample_160_360.txt')
         RandomSample = RandomSample/np.max(RandomSample)
         RandomSample = RandomSample*bprime*10
 
@@ -332,11 +330,6 @@ if ZeroDiffusion != 1:
                                            mu=Constant(10./delta) )))
     diffused_fields.append(("b", InteriorPenalty(state, Vb, kappa=kappa_b,
                                            mu=Constant(10./delta),bcs=bcs_b )))
-
-
-if CheckPoint == 1:
-    chkpt = DumbCheckpoint("chkpt.h5", mode=FILE_READ)
-    b = Function(Vb, name="b")
 
 
 ##############################################################################
